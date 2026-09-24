@@ -113,7 +113,7 @@ async function copyAnswer() {
       <div class="user-text">{{ message.content }}</div>
     </div>
     <ApprovalCard
-      v-for="approval in run.approvals"
+      v-for="approval in run.approvals.filter((entry) => entry.status === 'pending')"
       :key="approval.id"
       :approval="approval"
       :busy="!!approvalPending"

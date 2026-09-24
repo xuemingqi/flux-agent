@@ -31,11 +31,14 @@ test('reads real workspace files and refreshes a pending approval before writing
   await expect(page.locator('.file-change-comparison')).toContainText('approved content');
   await page.getByRole('button', { name: '关闭预览', exact: true }).click();
   await page.getByRole('button', { name: '允许本次修改' }).click();
-  await expect(card).toContainText('已允许本次修改');
+  await expect(card).toHaveCount(0);
   await expect(page.locator('.markdown').last()).toContainText('written');
   expect(await readFile(path, 'utf8')).toBe('approved content\n');
   await page.reload();
-  await expect(card).toContainText('已允许本次修改');
+  await expect(card).toHaveCount(0);
+  await page.locator('[data-tool="write_file"]').click();
+  await expect(page.locator('.file-change-comparison')).toContainText('initial text');
+  await expect(page.locator('.file-change-comparison')).toContainText('approved content');
   await expect(page.getByText('SQLite 已持久化')).toBeVisible();
 });
 
@@ -50,6 +53,7 @@ test('denies a file change and requires explicit full-access confirmation before
   await expect(card).toContainText('等待你的确认');
   const path = await card.locator('.approval-path').innerText();
   await page.getByRole('button', { name: '拒绝', exact: true }).click();
+  await expect(card).toHaveCount(0);
   await expect(page.locator('.markdown').last()).toContainText('APPROVAL_DENIED');
   await expect(access(path)).rejects.toThrow();
   await page.getByRole('button', { name: '运行权限' }).click();

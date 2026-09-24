@@ -40,7 +40,7 @@ test('steers while awaiting approval without approving or replaying the write', 
   await expect(approval).toContainText('等待你的确认');
   await page.getByRole('button', { name: '拒绝', exact: true }).click();
   await expect(page.locator('.markdown').last()).toContainText('已取消修改，文件保持原样');
-  await expect(approval).toHaveCount(1);
+  await expect(approval).toHaveCount(0);
   await expect(access(path)).rejects.toThrow();
 });
 
@@ -93,6 +93,8 @@ test('preserves rejected steering as a draft and labels pending input unprocesse
   await expect(page.getByText('调整方向 · 等待当前执行单元完成', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '停止生成', exact: true }).click();
   await expect(page.getByText('本轮结束前未处理，请重新发送')).toBeVisible();
+  await expect(page.getByRole('region', { name: '文件修改审批' })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText('本轮结束前未处理，请重新发送')).toBeVisible();
+  await expect(page.getByRole('region', { name: '文件修改审批' })).toHaveCount(0);
 });
