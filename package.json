@@ -1,0 +1,62 @@
+{
+  "name": "@yonyeyy/flux-agent",
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm build:packages && pnpm --parallel --filter './apps/*' dev",
+    "build:packages": "pnpm --filter @flux-agent/contracts build && pnpm --filter @flux-agent/agent-runtime build",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @flux-agent/server start",
+    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "test": "pnpm build:packages && vitest run",
+    "test:e2e": "pnpm build && playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build:cli": "pnpm build && node scripts/build-cli.mjs",
+    "prepack": "pnpm build:cli",
+    "test:cli": "pnpm build:cli && node --test tests/cli.test.mjs",
+    "test:installers": "node --test tests/installers.test.mjs",
+    "test:installers:windows": "powershell -NoProfile -File tests/installers.test.ps1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.13.6",
+    "esbuild": "0.28.2",
+    "prettier": "^3.9.8",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1"
+  },
+  "version": "0.1.1",
+  "description": "Local AI agent workbench with a web interface",
+  "bin": {
+    "flux-agent": "bin/flux-agent.mjs"
+  },
+  "files": [
+    "bin/flux-agent.mjs",
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xuemingqi/flux-agent.git"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@langchain/core": "^1.2.12",
+    "@langchain/openai": "^1.5.13",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.3",
+    "hono": "^4.13.8",
+    "langchain": "^1.5.12",
+    "openai": "7.21.0",
+    "pino": "^10.3.1",
+    "undici": "^7.29.1",
+    "zod": "^4.6.5"
+  }
+}

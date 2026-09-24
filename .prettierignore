@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+docs/technical-proposal.md
+dist
+node_modules
+.pnpm-store
+coverage

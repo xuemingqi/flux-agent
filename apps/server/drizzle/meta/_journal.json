@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790152426378,
+      "tag": "0000_dear_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790153007448,
+      "tag": "0001_confused_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790154441620,
+      "tag": "0002_memory_and_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790154442140,
+      "tag": "0003_memory_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790160179331,
+      "tag": "0004_workspace_archive",
+      "breakpoints": true
+    }
+  ]
+}
