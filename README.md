@@ -68,7 +68,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --port 3100 --
 
 ## npm CLI 使用与打包
 
-发布包名称为 `@yonyeyy/flux-agent`，当前版本 `0.1.1`，通过 [CNB 公开制品库](https://cnb.cool/yonyeyy/flux-agent) 分发。首次使用先配置该 scope 的下载地址，其他依赖继续使用原有 npm 源：
+发布包名称为 `@yonyeyy/flux-agent`，当前版本 `0.1.2`，通过 [CNB 公开制品库](https://cnb.cool/yonyeyy/flux-agent) 分发。首次使用先配置该 scope 的下载地址，其他依赖继续使用原有 npm 源：
 
 ```bash
 npm config set @yonyeyy:registry https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
@@ -93,10 +93,10 @@ pnpm test:cli
 npm pack
 ```
 
-`npm pack` 会通过 `prepack` 自动执行完整构建，只生成本地 `yonyeyy-flux-agent-0.1.1.tgz`，不会发布。可从其他目录安装该文件验证：
+`npm pack` 会通过 `prepack` 自动执行完整构建，只生成本地 `yonyeyy-flux-agent-0.1.2.tgz`，不会发布。可从其他目录安装该文件验证：
 
 ```bash
-npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.1.tgz -- flux-agent web
+npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.2.tgz -- flux-agent web
 ```
 
 根包通过 `bin/flux-agent.mjs` 提供命令；内部 workspace 模块由 esbuild 合并为 ESM 后端入口，第三方运行依赖由 npm 安装。`files` 只包含 CLI 和 `dist/`，另由 npm 自动包含 `package.json`、README 等标准文件；构建产物包含网页和 SQLite 迁移，不携带 `.env`、数据库、测试或本机 `node_modules`。SQLite 沿用 `better-sqlite3`，若目标平台没有匹配的预编译二进制，安装时需要本地编译工具链。
@@ -106,7 +106,7 @@ npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.1.tgz -- flux-agent web
 维护者完成认证后，可显式发布已验证的压缩包：
 
 ```bash
-npm publish ./yonyeyy-flux-agent-0.1.1.tgz --registry=https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
+npm publish ./yonyeyy-flux-agent-0.1.2.tgz --registry=https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
 ```
 
 ## 启动

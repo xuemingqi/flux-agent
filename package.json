@@ -29,7 +29,7 @@
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local AI agent workbench with a web interface",
   "bin": {
     "flux-agent": "bin/flux-agent.mjs"
