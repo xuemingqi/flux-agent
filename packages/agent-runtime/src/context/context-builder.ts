@@ -10,6 +10,22 @@ export interface ContextBudget {
 
 export class ContextBudgetError extends Error {}
 
+export const COMPRESSION_TARGET_RATIO = 0.2;
+
+/**
+ * 输入达到窗口的 90% 时压缩；显式输出预算更大时优先保留输出容量。
+ * 跟随服务商输出时预留窗口的 10%，不再叠加固定 4096 和另一层折扣。
+ */
+export function contextLimits(budget: ContextBudget) {
+  const window = budget.contextWindowTokens ?? 32768;
+  const output = budget.maxOutputTokens || Math.ceil(window * 0.1);
+  return {
+    window,
+    input: Math.min(Math.floor(window * 0.9), window - output),
+    target: Math.floor(window * COMPRESSION_TARGET_RATIO),
+  };
+}
+
 /**
  * 按字符类别近似估算 token，不声称是供应商精确 tokenizer。
  * 预算仅用于选择历史和记忆；当前轮次超出估算时仍发送，由供应商判断实际容量。
@@ -24,8 +40,8 @@ export function buildContext(
   step: number,
   preserveHistory = false,
 ) {
-  const window = budget.contextWindowTokens ?? 32768;
-  const available = Math.floor(window * 0.9) - (budget.maxOutputTokens || 4096);
+  const limits = contextLimits(budget);
+  const available = limits.input;
   const toolsCost = estimate(toolSchemas);
   const groups: ModelMessage[][] = [];
   for (const message of messages) {
@@ -41,6 +57,7 @@ export function buildContext(
       record: {
         step,
         budgetTokens: available,
+        contextWindowTokens: limits.window,
         estimatedTokens: toolsCost + estimate(system),
         keptTurns: 0,
         omittedTurns: 0,
@@ -82,6 +99,7 @@ export function buildContext(
     record: {
       step,
       budgetTokens: available,
+      contextWindowTokens: limits.window,
       estimatedTokens: used,
       keptTurns: selected.length,
       omittedTurns: groups.length - selected.length,

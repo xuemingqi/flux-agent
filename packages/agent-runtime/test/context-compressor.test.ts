@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AIMessageChunk } from '@langchain/core/messages';
 import { FakeStreamingChatModel } from '@langchain/core/utils/testing';
-import type { ContextCompaction, ModelMessage } from '@flux-agent/contracts';
+import type { ContextCompaction, MemoryEntry, ModelMessage } from '@flux-agent/contracts';
 import { ContextCompressor, isContextOverflow } from '../src/context/context-compressor.js';
+import { buildContext, estimate } from '../src/context/context-builder.js';
 
 const history: ModelMessage[] = [
   { role: 'user', content: '记住任务代号 orchid，先读文件。' },
@@ -18,6 +19,106 @@ const model = () =>
   });
 
 describe('Durable context compaction', () => {
+  it('waits until 90 percent of the configured window instead of applying two discounts', async () => {
+    const chat = model();
+    const summarize = vi.spyOn(chat, 'stream');
+    const budget = { contextWindowTokens: 10000 };
+    const compressor = new ContextCompressor(chat, budget);
+    const messages: ModelMessage[] = [
+      { role: 'user', content: '原始目标' },
+      { role: 'assistant', content: 'x'.repeat(25000) },
+      { role: 'user', content: '继续' },
+    ];
+    const before = await compressor.prepare(messages, '', [], [], 1, new AbortController().signal);
+    expect(before.record.budgetTokens).toBe(9000);
+    expect(before.record.estimatedTokens).toBeGreaterThan(8000);
+    expect(summarize).not.toHaveBeenCalled();
+    messages[1]!.content += 'x'.repeat(4000);
+    const after = await compressor.prepare(messages, '', [], [], 2, new AbortController().signal);
+    expect(summarize).toHaveBeenCalled();
+    expect(after.record.estimatedTokens).toBeLessThanOrEqual(2000);
+  });
+
+  it('uses the complete request for the 20 percent target and does not summarize again without new history', async () => {
+    const messages: ModelMessage[] = [{ role: 'user', content: '保留当前任务的完整要求' }];
+    for (let index = 0; index < 12; index++) {
+      messages.push(
+        { role: 'assistant', content: '', toolCalls: [{ id: String(index), name: 'read_file', args: {} }] },
+        { role: 'tool', toolCallId: String(index), content: 'x'.repeat(3000) },
+      );
+    }
+    const system = '约束'.repeat(70);
+    const tools = [{ name: 'read_file', description: 'x'.repeat(300) }];
+    const memory = { id: 'm', version: 1, content: '记忆'.repeat(30) } as MemoryEntry;
+    const budget = { contextWindowTokens: 10000 };
+    const chat = model();
+    const summarize = vi.spyOn(chat, 'stream');
+    const save = vi.fn();
+    const compressor = new ContextCompressor(chat, budget, null, save);
+    const after = await compressor.prepare(messages, system, tools, [memory], 1, new AbortController().signal);
+    expect(after.record.estimatedTokens).toBeLessThanOrEqual(2000);
+    expect(after.record.memories).toHaveLength(1);
+    expect(after.messages).toContainEqual(messages[0]);
+    expect(after.messages.slice(-2)).toEqual(messages.slice(-2));
+    expect(save.mock.calls[0]![0]).toMatchObject({ targetTokens: 2000 });
+    const calls = summarize.mock.calls.length;
+    await compressor.prepare(messages, system, tools, [memory], 2, new AbortController().signal);
+    expect(summarize).toHaveBeenCalledTimes(calls);
+  });
+
+  it('reports when the latest indivisible tool result prevents reaching the target', async () => {
+    const messages: ModelMessage[] = [
+      ...history.slice(0, 3),
+      { role: 'assistant', content: '', toolCalls: [{ id: 'latest', name: 'read_file', args: {} }] },
+      { role: 'tool', toolCallId: 'latest', content: 'z'.repeat(9000) },
+    ];
+    const save = vi.fn();
+    const compressor = new ContextCompressor(model(), { contextWindowTokens: 10000 }, null, save);
+    const after = await compressor.prepare(messages, '', [], [], 1, new AbortController().signal);
+    expect(after.messages.slice(-2)).toEqual(messages.slice(-2));
+    expect(after.record.estimatedTokens).toBeGreaterThan(2000);
+    expect(save.mock.calls[0]![0].warning).toContain('20%');
+  });
+
+  it('does not repeatedly summarize instructions that must be restored beside an oversized latest result', async () => {
+    const chat = model();
+    const summarize = vi.spyOn(chat, 'stream');
+    const compressor = new ContextCompressor(chat, { contextWindowTokens: 8192 });
+    const messages = history.slice(0, 3);
+    for (let step = 1; step <= 2; step++) {
+      const result = await compressor.prepare(messages, '', [], [], step, new AbortController().signal);
+      expect(result.messages).toEqual(messages);
+      expect(result.record.compressionWarning).toContain('没有可安全压缩');
+    }
+    expect(summarize).not.toHaveBeenCalled();
+  });
+
+  it('retries an oversized summary once and retains raw history if the model still ignores the budget', async () => {
+    const chat = new FakeStreamingChatModel({ chunks: [new AIMessageChunk('长摘要'.repeat(500))], sleep: 0 });
+    const summarize = vi.spyOn(chat, 'stream');
+    const save = vi.fn();
+    const compressor = new ContextCompressor(chat, { contextWindowTokens: 8192 }, null, save);
+    const after = await compressor.prepare(history, '', [], [], 1, new AbortController().signal);
+    expect(summarize).toHaveBeenCalledTimes(2);
+    expect(after.messages).toEqual(history);
+    expect(after.record.compressionError).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('still forces compression after a provider overflow below the estimated threshold', async () => {
+    const messages: ModelMessage[] = [
+      { role: 'user', content: 'a'.repeat(3000) },
+      { role: 'assistant', content: '已完成' },
+      { role: 'user', content: '继续' },
+    ];
+    const budget = { contextWindowTokens: 32768 };
+    expect(buildContext(messages, '', [], [], budget, 1).record.estimatedTokens).toBeLessThan(32768 * 0.9);
+    const compressor = new ContextCompressor(model(), budget);
+    const after = await compressor.prepare(messages, '', [], [], 1, new AbortController().signal, true);
+    expect(after.record.summarizedMessages).toBe(2);
+    expect(estimate(after.messages)).toBeLessThan(estimate(messages));
+  });
+
   it('does not summarize an ordinary first question with a file read far below the model window', async () => {
     const chat = model();
     const invoke = vi.spyOn(chat, 'stream');

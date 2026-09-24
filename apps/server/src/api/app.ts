@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import {
   createRunSchema,
   saveModelSettingsSchema,
+  detectModelContextSchema,
   createWorkspaceSchema,
   createThreadSchema,
   updatePermissionSchema,
@@ -57,6 +58,11 @@ export function createApp({
     return context.json({ token, model: model || null, configured, storage: manager.storage });
   });
   app.get('/api/settings/model', (context) => context.json(settings.getSettings()));
+  app.post('/api/settings/model/context', async (context) => {
+    const result = detectModelContextSchema.safeParse(await context.req.json().catch(() => null));
+    if (!result.success) throw new ApplicationError('INVALID_MODEL_SETTINGS', '请先填写有效的接口地址和模型名称。');
+    return context.json(await settings.detectContext(result.data));
+  });
   app.post('/api/settings/model', async (context) => {
     const body: unknown = await context.req.json().catch(() => {
       throw new ApplicationError('INVALID_JSON', '请求必须是 JSON。');

@@ -103,6 +103,31 @@ describe('Server-enforced permissions', () => {
     expect(await readFile(join(root, 'hello.txt'), 'utf8')).toBe('before\n');
   });
 
+  it('reads and persists complete text files larger than 64 KB and searches through their final line', async () => {
+    const { execute, root, store, run } = await fixture();
+    const content = '完整文件内容 abcdefghijklmnopqrstuvwxyz\n'.repeat(30_000) + 'large-file-final-marker';
+    expect(Buffer.byteLength(content)).toBeGreaterThan(1_000_000);
+    await writeFile(join(root, 'large.txt'), content);
+
+    expect(await execute('read_file', { path: 'large.txt' }, 'large-read')).toEqual({ content, failed: false });
+    expect(store.getExecution(run.id, 'large-read')).toMatchObject({ status: 'succeeded', result: content });
+    const search = await execute('search_files', { path: '.', query: 'large-file-final-marker' });
+    expect(search.failed).toBe(false);
+    expect(JSON.parse(search.content)).toEqual({
+      matches: [{ path: 'large.txt', line: 30_001, text: 'large-file-final-marker' }],
+      truncated: false,
+    });
+  });
+
+  it('rejects directories, binary files and invalid UTF-8 when reading without a size limit', async () => {
+    const { execute, root } = await fixture();
+    await writeFile(join(root, 'binary.bin'), Buffer.concat([Buffer.alloc(70_000, 65), Buffer.from([0])]));
+    await writeFile(join(root, 'invalid.txt'), Buffer.from([0xff, 0xfe]));
+    for (const path of ['.', 'binary.bin', 'invalid.txt']) {
+      expect((await execute('read_file', { path })).failed).toBe(true);
+    }
+  });
+
   it.each(['approved', 'denied'] as const)('waits for the specific user decision: %s', async (decision) => {
     const { execute, run, pending, root, approvals, store } = await fixture('workspace-write');
     const task = execute('write_file', { path: 'hello.txt', content: 'after\n' }, 'write-once');

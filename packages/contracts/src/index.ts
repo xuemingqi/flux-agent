@@ -121,6 +121,10 @@ export type ModelMessage = z.infer<typeof modelMessageSchema>;
 export const contextRecordSchema = z.object({
   step: z.number().int().positive(),
   budgetTokens: z.number().int(),
+  /**
+   * 当前请求采用的模型窗口，旧记录可能没有该字段。
+   */
+  contextWindowTokens: z.number().int().positive().optional(),
   estimatedTokens: z.number().int(),
   keptTurns: z.number().int(),
   omittedTurns: z.number().int(),
@@ -129,6 +133,10 @@ export const contextRecordSchema = z.object({
   /** 已由摘要覆盖的原生消息数量；完整记录仍保留。 */
   summarizedMessages: z.number().int().nonnegative().optional(),
   compressionError: z.string().optional(),
+  /**
+   * 当前没有可安全压缩的内容时说明原因，避免重复请求模型生成无效摘要。
+   */
+  compressionWarning: z.string().optional(),
 });
 export type ContextRecord = z.infer<typeof contextRecordSchema>;
 
@@ -139,6 +147,14 @@ export const contextCompactionSchema = z.object({
   createdAt: z.string(),
   beforeTokens: z.number().int().nonnegative(),
   afterTokens: z.number().int().nonnegative(),
+  /**
+   * 整个请求的压缩目标，包含摘要、原文、系统提示、工具和记忆。
+   */
+  targetTokens: z.number().int().positive().optional(),
+  /**
+   * 未达到目标时说明必须保留的内容超出预算，不能宣称压缩达标。
+   */
+  warning: z.string().optional(),
 });
 export type ContextCompaction = z.infer<typeof contextCompactionSchema>;
 
@@ -352,7 +368,10 @@ export const saveModelSettingsSchema = z.object({
   baseUrl: modelEndpointSchema,
   model: z.string().trim().min(1).max(200),
   apiKey: z.string().trim().max(8192).default(''),
-  contextWindowTokens: z.number().int().min(8192).max(2_000_000).default(32768),
+  /**
+   * 留空时从服务商元数据或已核实的官方规格获取；手动值优先。
+   */
+  contextWindowTokens: z.number().int().min(8192).max(2_000_000).optional(),
   maxOutputTokens: z
     .number()
     .int()
@@ -362,6 +381,21 @@ export const saveModelSettingsSchema = z.object({
     .default(0),
 });
 export type SaveModelSettings = z.infer<typeof saveModelSettingsSchema>;
+
+export const detectModelContextSchema = saveModelSettingsSchema.pick({ baseUrl: true, model: true, apiKey: true });
+export type DetectModelContext = z.infer<typeof detectModelContextSchema>;
+
+export const modelContextSchema = z.object({
+  /**
+   * 未识别时必须手动填写，不能静默套用小窗口。
+   */
+  contextWindowTokens: z.number().int().min(8192).max(2_000_000).nullable(),
+  /**
+   * 区分服务商实时元数据与内置官方规格。
+   */
+  source: z.enum(['provider', 'official']).nullable(),
+});
+export type ModelContext = z.infer<typeof modelContextSchema>;
 
 export const modelSettingsSchema = z.object({
   baseUrl: z.string(),

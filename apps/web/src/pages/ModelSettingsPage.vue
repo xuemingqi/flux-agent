@@ -1,14 +1,77 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
-import { modelSettingsSchema, saveModelSettingsSchema, type ModelSettings } from '@flux-agent/contracts';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import {
+  detectModelContextSchema,
+  modelContextSchema,
+  modelSettingsSchema,
+  saveModelSettingsSchema,
+  type ModelSettings,
+} from '@flux-agent/contracts';
 import { request } from '../api/client';
 
 const emit = defineEmits<{ saved: [settings: ModelSettings]; back: [] }>();
 const settings = ref<ModelSettings>();
-const form = reactive({ baseUrl: '', model: '', apiKey: '', contextWindowTokens: 32768, maxOutputTokens: 0 });
+const form = reactive({
+  baseUrl: '',
+  model: '',
+  apiKey: '',
+  contextWindowTokens: undefined as number | undefined,
+  maxOutputTokens: 0,
+});
 const loading = ref(true);
 const saving = ref(false);
 const error = ref('');
+const detecting = ref(false);
+const contextHint = ref('');
+let discoveryVersion = 0;
+const contextTarget = computed(() =>
+  form.contextWindowTokens ? Math.floor(form.contextWindowTokens * 0.2).toLocaleString() : '',
+);
+
+watch(
+  () => [form.baseUrl, form.model, form.apiKey],
+  (value, previous) => {
+    if (loading.value) return;
+    discoveryVersion++;
+    detecting.value = false;
+    if (value[0] !== previous[0] || value[1] !== previous[1]) {
+      form.contextWindowTokens = undefined;
+      contextHint.value = '';
+    }
+  },
+  { flush: 'sync' },
+);
+
+function cancelDiscovery() {
+  discoveryVersion++;
+  detecting.value = false;
+  contextHint.value = '';
+}
+
+async function detectContext() {
+  const input = detectModelContextSchema.safeParse(form);
+  if (!input.success) return;
+  const version = ++discoveryVersion;
+  detecting.value = true;
+  contextHint.value = '';
+  try {
+    const detected = await request('/settings/model/context', modelContextSchema, input.data);
+    if (version !== discoveryVersion) return;
+    if (detected.contextWindowTokens) {
+      form.contextWindowTokens = detected.contextWindowTokens;
+      contextHint.value =
+        detected.source === 'provider'
+          ? '已从服务商读取窗口容量，可手动调整。'
+          : '已按该服务商的官方规格填写，可手动调整。';
+    } else {
+      contextHint.value = '未能自动获取窗口容量，请按服务商规格手动填写。';
+    }
+  } catch {
+    if (version === discoveryVersion) contextHint.value = '窗口查询失败，请重试或手动填写。';
+  } finally {
+    if (version === discoveryVersion) detecting.value = false;
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -17,7 +80,7 @@ async function load() {
     settings.value = await request('/settings/model', modelSettingsSchema);
     form.baseUrl = settings.value.baseUrl;
     form.model = settings.value.model;
-    form.contextWindowTokens = settings.value.contextWindowTokens;
+    form.contextWindowTokens = settings.value.contextWindowTokens || undefined;
     form.maxOutputTokens = settings.value.maxOutputTokens;
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '无法读取模型配置，请重试。';
@@ -29,6 +92,11 @@ async function load() {
 async function save() {
   if (saving.value) return;
   error.value = '';
+  if (!form.contextWindowTokens) await detectContext();
+  if (!form.contextWindowTokens) {
+    error.value = '请填写模型的上下文窗口，或点击自动获取。';
+    return;
+  }
   const input = saveModelSettingsSchema.safeParse(form);
   if (!input.success) {
     error.value =
@@ -85,6 +153,7 @@ onMounted(load);
           placeholder="https://api.example.com/v1"
           autocomplete="url"
           aria-describedby="model-base-url-help"
+          @change="detectContext"
         />
         <p id="model-base-url-help" class="field-help">
           填写服务商提供的 API 根地址，例如 https://api.example.com/v1，不要附加 /chat/completions。
@@ -99,6 +168,7 @@ onMounted(load);
           placeholder="输入服务商提供的模型名称"
           autocomplete="off"
           spellcheck="false"
+          @change="detectContext"
         />
 
         <label for="model-api-key">API Key <span v-if="settings.hasApiKey">已保存</span></label>
@@ -111,6 +181,7 @@ onMounted(load);
           :required="!settings.hasApiKey"
           :placeholder="settings.hasApiKey ? '留空保留当前密钥' : '输入 API Key'"
           aria-describedby="model-api-key-help"
+          @change="!form.contextWindowTokens && detectContext()"
         />
         <p id="model-api-key-help" class="field-help">
           密钥保存在本机 SQLite 中，不会回显。更换接口地址时需要重新填写。
@@ -125,8 +196,13 @@ onMounted(load);
               type="number"
               min="8192"
               max="2000000"
-              required
+              placeholder="自动获取或手动填写"
+              aria-describedby="model-window-help"
+              @input="cancelDiscovery"
             />
+            <button type="button" class="secondary-button detect-context" :disabled="detecting" @click="detectContext">
+              {{ detecting ? '正在获取…' : '自动获取' }}
+            </button>
           </div>
           <div>
             <label for="model-output">最大输出（tokens）</label
@@ -140,18 +216,25 @@ onMounted(load);
             />
           </div>
         </div>
+        <p id="model-window-help" class="field-help" role="status">
+          {{ contextHint || '填写接口和模型名称后自动获取窗口容量；不支持自动获取的服务商可手动填写。' }}
+        </p>
         <p class="field-help">
-          输出包括思考和正文。设为 0
-          时使用服务商默认输出预算；显式填写时请遵循模型容量。上下文接近窗口时自动生成摘要，原记录仍然保留。
+          输出包括思考和正文。设为 0 时跟随服务商，并为上下文预算预留 10% 的输出空间。输入达到窗口的 90%
+          时压缩；显式输出预算超过 10% 时会提前留出所需空间。 压缩后目标为窗口的 20%<span v-if="contextTarget"
+            >（{{ contextTarget }} tokens）</span
+          >，原记录仍然保留。
         </p>
         <div class="settings-actions">
           <button v-if="settings.configured" type="button" class="secondary-button" @click="emit('back')">
             返回对话
           </button>
-          <button class="send-button" type="submit">{{ saving ? '正在保存…' : '保存并开始对话' }}</button>
+          <button class="send-button" type="submit" :disabled="detecting">
+            {{ saving ? '正在保存…' : '保存并开始对话' }}
+          </button>
         </div>
       </fieldset>
-      <p class="settings-description">配置会在重启后保留。保存不会发送模型请求，连接结果将在对话中显示。</p>
+      <p class="settings-description">配置会在重启后保留。自动获取只查询模型信息，不发送对话或消耗生成 tokens。</p>
     </form>
   </section>
 </template>
@@ -242,6 +325,9 @@ input::placeholder {
   padding: 9px 13px;
   font-size: 12px;
   color: #b0b0bd;
+}
+.detect-context {
+  margin-top: 8px;
 }
 .settings-description {
   text-align: center;

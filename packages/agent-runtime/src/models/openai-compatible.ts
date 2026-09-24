@@ -3,7 +3,9 @@ import { CancellableOpenAI } from './cancellable-openai.js';
 import { ReasoningCompletions } from './reasoning-completions.js';
 
 export interface ModelConfiguration {
-  /** 用户配置的模型窗口容量，不通过模型名称猜测供应商能力。 */
+  /**
+   * 已解析的模型窗口容量，由服务商元数据、官方规格或用户手动配置提供。
+   */
   contextWindowTokens?: number;
 
   /** 单次输出上限，含模型思考；0 或未配置时使用供应商默认值。 */

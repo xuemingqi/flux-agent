@@ -15,11 +15,18 @@ defineProps<{ records: ContextRecord[]; compaction?: ContextCompaction | null }>
       </summary>
       <p class="context-summary">{{ compaction.summary }}</p>
       <p>摘要与原始记录已保存，后续对话复用摘要。</p>
+      <p v-if="compaction.targetTokens">
+        压缩目标：整个输入不超过 {{ compaction.targetTokens.toLocaleString() }} tokens。
+      </p>
+      <p v-if="compaction.warning" class="error-text">{{ compaction.warning }}</p>
     </details>
     <div v-for="record in records" :key="record.step" class="context-record">
       <p>
-        第 {{ record.step }} 次请求 · 保守估算 {{ record.estimatedTokens.toLocaleString() }} tokens · 参考预算
-        {{ record.budgetTokens.toLocaleString() }} tokens
+        第 {{ record.step }} 次请求 · 保守估算 {{ record.estimatedTokens.toLocaleString() }} tokens ·
+        {{ record.contextWindowTokens ? '压缩触发阈值' : '参考预算' }} {{ record.budgetTokens.toLocaleString() }} tokens
+        <span v-if="record.contextWindowTokens">
+          · 模型窗口 {{ record.contextWindowTokens.toLocaleString() }} tokens</span
+        >
       </p>
       <p>
         保留 {{ record.keptTurns }} 轮<span v-if="record.omittedTurns">
@@ -34,6 +41,7 @@ defineProps<{ records: ContextRecord[]; compaction?: ContextCompaction | null }>
       </ul>
       <p v-else>未引用长期记忆</p>
       <p v-if="record.compressionError" class="error-text">{{ record.compressionError }}</p>
+      <p v-if="record.compressionWarning" class="error-text">{{ record.compressionWarning }}</p>
     </div>
   </details>
 </template>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MemoryEntry, ModelMessage } from '@flux-agent/contracts';
-import { buildContext, ContextBudgetError, estimate } from '../src/context/context-builder.js';
+import { buildContext, ContextBudgetError, contextLimits, estimate } from '../src/context/context-builder.js';
 import { decodeMessage, encodeMessages } from '../src/context/message-codec.js';
 
 const history: ModelMessage[] = [
@@ -31,6 +31,11 @@ const memory: MemoryEntry = {
 };
 
 describe('Model context budget', () => {
+  it('reserves output once and uses the configured window for the compression target', () => {
+    expect(contextLimits({ contextWindowTokens: 1000000 })).toEqual({ window: 1000000, input: 900000, target: 200000 });
+    expect(contextLimits({ contextWindowTokens: 1000000, maxOutputTokens: 200000 }).input).toBe(800000);
+    expect(contextLimits({ contextWindowTokens: 32768, maxOutputTokens: 2048 }).input).toBe(29491);
+  });
   it('round-trips reasoning and paired tool messages without losing their IDs', () => {
     expect(encodeMessages(history.map(decodeMessage))).toEqual(history);
   });

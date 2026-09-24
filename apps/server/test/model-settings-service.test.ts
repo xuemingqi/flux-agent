@@ -1,11 +1,12 @@
 import { mkdtemp, access, writeFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ModelConfiguration } from '@flux-agent/agent-runtime';
 import { saveModelSettingsSchema } from '@flux-agent/contracts';
 import { ModelSettingsService } from '../src/settings/model-settings-service.js';
 import { SqliteRunStore } from '../src/storage/sqlite-run-store.js';
+import type { discoverModelContext } from '../src/settings/model-context.js';
 
 const budget = { contextWindowTokens: 32768, maxOutputTokens: 4096 };
 const directories: string[] = [];
@@ -27,18 +28,58 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
-async function createService() {
+async function createService(
+  discover: typeof discoverModelContext = async () => ({ contextWindowTokens: 131072, source: 'provider' }),
+) {
   const directory = await mkdtemp(join(tmpdir(), 'flux-settings-test-'));
   directories.push(directory);
   const path = join(directory, 'app.db');
   const store = new SqliteRunStore(path);
   stores.push(store);
-  const service = new ModelSettingsService(store.modelSettings, defaults, createRuntime);
+  const service = new ModelSettingsService(store.modelSettings, defaults, createRuntime, discover);
   await service.initialize();
   return { path, directory, store, service };
 }
 
 describe('ModelSettingsService', () => {
+  it('automatically resolves an omitted window and persists it for the next runtime and restart', async () => {
+    const { service, store } = await createService();
+    await service.save(
+      saveModelSettingsSchema.parse({ baseUrl: defaults.baseUrl, model: 'large', apiKey: 'private-key' }),
+    );
+    expect(service.getSettings().contextWindowTokens).toBe(131072);
+    expect(store.modelSettings.load()?.contextWindowTokens).toBe(131072);
+  });
+
+  it('requires a manual capacity when detection fails instead of silently defaulting to 32K', async () => {
+    const discover = vi
+      .fn<typeof discoverModelContext>()
+      .mockResolvedValue({ contextWindowTokens: null, source: null });
+    const { service } = await createService(discover);
+    const input = saveModelSettingsSchema.parse({ baseUrl: defaults.baseUrl, model: 'unknown', apiKey: 'private-key' });
+    await expect(service.save(input)).rejects.toThrow('上下文窗口');
+    expect(service.getRuntime()).toBeNull();
+    discover.mockClear();
+    await service.save({ ...input, contextWindowTokens: 1000000 });
+    expect(discover).not.toHaveBeenCalled();
+    expect(service.getSettings().contextWindowTokens).toBe(1000000);
+  });
+
+  it('reuses saved credentials only for the same endpoint during discovery without mutating settings', async () => {
+    const discover = vi
+      .fn<typeof discoverModelContext>()
+      .mockResolvedValue({ contextWindowTokens: 1000000, source: 'provider' });
+    const { service } = await createService(discover);
+    await service.save({ ...budget, baseUrl: defaults.baseUrl, model: 'first', apiKey: 'private-key' });
+    const runtime = service.getRuntime();
+    await service.detectContext({ baseUrl: defaults.baseUrl, model: 'second', apiKey: '' });
+    expect(discover).toHaveBeenLastCalledWith({ baseUrl: defaults.baseUrl, model: 'second', apiKey: 'private-key' });
+    await service.detectContext({ baseUrl: 'https://other.example/v1', model: 'second', apiKey: '' });
+    expect(discover).toHaveBeenLastCalledWith({ baseUrl: 'https://other.example/v1', model: 'second', apiKey: '' });
+    expect(service.getRuntime()).toBe(runtime);
+    expect(service.getSettings().contextWindowTokens).toBe(32768);
+  });
+
   it('persists provider-default output and supports explicit budgets above the old 8192 ceiling', async () => {
     const { service, store } = await createService();
     const input = saveModelSettingsSchema.parse({ baseUrl: defaults.baseUrl, model: 'reasoning', apiKey: 'fixture' });

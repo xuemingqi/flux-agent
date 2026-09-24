@@ -53,7 +53,7 @@ const definitions = [
   },
   {
     name: 'read_file',
-    description: '读取 UTF-8 文本文件，最多 64 KB；不可读取二进制文件。',
+    description: '完整读取 UTF-8 文本文件，不限制文件大小；不可读取二进制文件。',
     properties: { path: { type: 'string' } },
     required: ['path'],
   },

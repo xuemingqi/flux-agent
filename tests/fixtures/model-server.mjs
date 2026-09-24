@@ -7,6 +7,18 @@ const compressionGates = new Set();
 const subagentGates = new Set();
 const displayStreams = new Map();
 const server = createServer(async (request, response) => {
+  if (request.url === '/v1/models' && request.method === 'GET') {
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(
+      JSON.stringify({
+        data: [
+          { id: 'fixture-model', context_length: 32768 },
+          { id: 'updated-model', context_length: 262144 },
+        ],
+      }),
+    );
+    return;
+  }
   if (request.url === '/advance-display' && request.method === 'POST') {
     let body = '';
     for await (const chunk of request) body += chunk;

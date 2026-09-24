@@ -17,7 +17,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import type { PermissionMode } from '@flux-agent/contracts';
 import { ApplicationError } from '../api/application-error.js';
 
-const MAX_FILE_BYTES = 64_000;
+const MAX_WRITE_BYTES = 64_000;
 const MAX_SEARCH_FILES = 500;
 const MAX_SEARCH_RESULTS = 50;
 
@@ -71,11 +71,9 @@ export class WorkspaceFiles {
     const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
       const info = fstatSync(descriptor);
-      if (!info.isFile() || info.size > MAX_FILE_BYTES)
-        throw new ApplicationError('FILE_LIMIT', '只支持读取 64 KB 以内的普通文本文件。');
+      if (!info.isFile()) throw new ApplicationError('FILE_LIMIT', '只支持读取普通文本文件。');
       const bytes = readFileSync(descriptor);
-      if (bytes.length > MAX_FILE_BYTES || bytes.includes(0))
-        throw new ApplicationError('FILE_LIMIT', '文件过大或不是文本文件。');
+      if (bytes.includes(0)) throw new ApplicationError('FILE_LIMIT', '不可读取二进制文件。');
       return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } finally {
       closeSync(descriptor);
@@ -141,7 +139,7 @@ export class WorkspaceFiles {
    * 审批后重新校验路径和原文，避免覆盖等待期间用户修改的文件。
    */
   write(input: string, expectedPath: string, before: string | null, content: string): void {
-    if (Buffer.byteLength(content) > MAX_FILE_BYTES)
+    if (Buffer.byteLength(content) > MAX_WRITE_BYTES)
       throw new ApplicationError('FILE_LIMIT', '单次写入不能超过 64 KB。');
     const path = this.path(input, true);
     if (path !== expectedPath || this.snapshot(path) !== before)

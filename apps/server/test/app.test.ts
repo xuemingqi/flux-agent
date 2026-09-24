@@ -34,8 +34,10 @@ async function setup(configured = true, protectData = false) {
       model: configured ? 'test' : '',
       apiKey: configured ? 'secret-key' : '',
       streamUsage: false,
+      contextWindowTokens: 32768,
     },
     () => runtime,
+    async () => ({ contextWindowTokens: 32768, source: 'provider' }),
   );
   await settings.initialize();
   const manager = new RunManager(
@@ -53,6 +55,21 @@ async function setup(configured = true, protectData = false) {
 }
 
 describe('Local chat API', () => {
+  it('protects model discovery and does not change the saved model or return credentials', async () => {
+    const { app, headers } = await setup();
+    const endpoint = '/api/settings/model/context';
+    expect((await app.request(endpoint, { method: 'POST', headers: { cookie: headers.cookie } })).status).toBe(401);
+    const response = await app.request(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ baseUrl: 'https://example.com/v1', model: 'other', apiKey: '' }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ contextWindowTokens: 32768, source: 'provider' });
+    const saved = await (await app.request('/api/settings/model', { headers })).json();
+    expect(saved.model).toBe('test');
+    expect(JSON.stringify(saved)).not.toContain('secret-key');
+  });
   it('previews files with local authentication and workspace path protections without adding messages', async () => {
     const { app, manager, headers, directory } = await setup(true, true);
     const root = await mkdtemp(join(tmpdir(), 'flux-preview-test-'));
