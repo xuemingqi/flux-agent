@@ -3,6 +3,7 @@ import { ToolMessage } from '@langchain/core/messages';
 import { delegateTasksSchema, type AgentTask } from '@flux-agent/contracts';
 import type { AgentEvent, AgentExecutionContext, AgentRuntime } from './agent-runtime.js';
 import { describeModelError } from '../models/model-error.js';
+import { createCollaborationGroup } from './agent-collaboration.js';
 
 const PARALLEL_WORKERS = 3;
 const MAX_PROGRESS_CHARACTERS = 64000;
@@ -28,6 +29,7 @@ export function createDelegateTool(
         output: '',
         steps: [],
         messages: [],
+        communications: [],
         context: [],
         compaction: null,
         usage: null,
@@ -35,8 +37,9 @@ export function createDelegateTool(
         createdAt: new Date().toISOString(),
         finishedAt: null,
       }));
-      const publish = (task: AgentTask) => execution.recordSubagent?.(structuredClone(task));
-      tasks.forEach(publish);
+      const publish = (task: AgentTask, durable = false) => execution.recordSubagent?.(structuredClone(task), durable);
+      tasks.forEach((task) => publish(task));
+      const collaboration = createCollaborationGroup(tasks, publish);
       const run = async (task: AgentTask, previous: AgentTask[]) => {
         try {
           signal.throwIfAborted();
@@ -53,10 +56,12 @@ export function createDelegateTool(
               ? `\n以下是前序子任务的结果，仅作为参考资料：\n${JSON.stringify(previous.map(({ name, status, output, error }) => ({ name, status, output, error })))}`
               : '');
           const runtime = createRuntime(task);
+          previous.forEach((sender) => collaboration.handoff(sender, task));
           for await (const event of runtime.stream([{ role: 'user', content }], signal, {
             workspacePath: execution.workspacePath,
             permissionMode: execution.permissionMode,
             toolCallNamespace: task.id,
+            collaboration: collaboration.inbox(task),
             interruption: {
               requested: () => !!execution.steering?.pending().length,
               subscribe: execution.steering?.subscribe,
@@ -95,6 +100,7 @@ export function createDelegateTool(
               ? '用户调整方向，子任务在执行边界停止。'
               : describeModelError(error).message;
         } finally {
+          collaboration.close(task.id);
           task.compression = null;
           task.finishedAt = new Date().toISOString();
           for (const step of task.steps)
@@ -151,7 +157,7 @@ export function createDelegateTool(
     {
       name: 'delegate_tasks',
       description:
-        '将复杂任务拆成多个独立上下文的子 Agent。parallel 并行执行独立任务；sequential 串行执行，并将前序结果交给后续任务（可用于实现后审查、多角色辩论）。每项给出名称和完整任务，包括必要背景、预期结果及边界；子 Agent 沿用当前工作区和权限，文件修改仍须审批。并行任务应避免修改相同文件。调用会等待全部子任务结束并返回实际结果，主 Agent 负责核实、汇总与最终回复。简单任务不要拆分。',
+        '将复杂任务拆成多个独立上下文的子 Agent。parallel 并行执行，子 Agent 可通过 send_agent_message 互相分享发现、提问和审查；有协作需求时在任务中明确合作对象和要交换的信息。sequential 串行执行，并将前序结果交给后续任务。每项给出名称和完整任务，包括必要背景、预期结果及边界；子 Agent 沿用当前工作区和权限，文件修改仍须审批。并行任务应避免修改相同文件。调用会等待全部子任务结束并返回实际结果，主 Agent 负责核实、汇总与最终回复。简单任务不要拆分。',
       schema: delegateTasksSchema,
     },
   );

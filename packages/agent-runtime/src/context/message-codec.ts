@@ -14,8 +14,12 @@ export function decodeMessage(message: ModelMessage): BaseMessage {
     return new HumanMessage({
       // 图状态按消息 ID 合并，批量插话必须各有独立标识，避免同一节点内相互覆盖。
       ...(message.steeringId ? { id: `steering:${message.steeringId}` } : {}),
+      ...(message.collaborationId ? { id: `collaboration:${message.collaborationId}` } : {}),
       content: message.content,
-      additional_kwargs: message.steeringId ? { fluxSteeringId: message.steeringId } : {},
+      additional_kwargs: {
+        ...(message.steeringId ? { fluxSteeringId: message.steeringId } : {}),
+        ...(message.collaborationId ? { fluxCollaborationId: message.collaborationId } : {}),
+      },
     });
   if (message.role === 'tool')
     return new ToolMessage({
@@ -47,7 +51,15 @@ export function encodeMessages(messages: BaseMessage[]): ModelMessage[] {
             .join('');
     if (isHumanMessage(message)) {
       const steeringId = message.additional_kwargs.fluxSteeringId;
-      return [{ role: 'user', content, ...(typeof steeringId === 'string' ? { steeringId } : {}) }];
+      const collaborationId = message.additional_kwargs.fluxCollaborationId;
+      return [
+        {
+          role: 'user',
+          content,
+          ...(typeof steeringId === 'string' ? { steeringId } : {}),
+          ...(typeof collaborationId === 'string' ? { collaborationId } : {}),
+        },
+      ];
     }
     if (isToolMessage(message))
       return [

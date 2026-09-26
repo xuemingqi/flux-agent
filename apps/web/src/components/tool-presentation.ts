@@ -19,6 +19,8 @@ const presentations: Record<string, { label: string; icon: string }> = {
   search_memories: { label: '检索记忆', icon: 'memory' },
   propose_memory: { label: '记忆提议', icon: 'memory' },
   delegate_tasks: { label: '子 Agent', icon: 'agents' },
+  send_agent_message: { label: '发送协作消息', icon: 'agents' },
+  receive_agent_messages: { label: '接收协作消息', icon: 'agents' },
   get_current_time: { label: '时间', icon: 'clock' },
 };
 

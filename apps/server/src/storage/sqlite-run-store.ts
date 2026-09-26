@@ -219,6 +219,8 @@ export class SqliteRunStore implements RunStore {
         run.finishedAt = now;
         for (const task of run.subagents) {
           task.compression = null;
+          for (const message of task.communications ?? [])
+            if (message.status === 'pending') message.status = 'not_delivered';
           if (task.status !== 'running' && task.status !== 'queued') continue;
           task.status = 'interrupted';
           task.finishedAt = now;

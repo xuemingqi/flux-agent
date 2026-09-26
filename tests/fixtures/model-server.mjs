@@ -78,6 +78,67 @@ const server = createServer(async (request, response) => {
       })}\n\n`,
     );
   send({ role: 'assistant', content: '' });
+  const collaborationTask = input.messages.find(
+    (message) => message.role === 'user' && ['协作子任务 A', '协作子任务 B'].includes(message.content),
+  )?.content;
+  if (question === '协作交流测试' || collaborationTask) {
+    const call = (name, args) =>
+      send({
+        tool_calls: [
+          { index: 0, id: 'collaboration-call', type: 'function', function: { name, arguments: JSON.stringify(args) } },
+        ],
+      });
+    let toolCall = false;
+    if (!collaborationTask) {
+      if (input.messages.at(-1)?.role === 'tool') send({ content: '两位同伴已交换意见，主 Agent 已汇总复核结果。' });
+      else {
+        call('delegate_tasks', {
+          mode: 'parallel',
+          tasks: [
+            { name: '实现伙伴', task: '协作子任务 A' },
+            { name: '审查伙伴', task: '协作子任务 B' },
+          ],
+        });
+        toolCall = true;
+      }
+    } else {
+      const isA = collaborationTask.endsWith('A');
+      const incoming = input.messages.some(
+        (message) => message.role === 'user' && String(message.content).includes('来自同伴 Agent'),
+      );
+      const sent = input.messages.some(
+        (message) =>
+          message.role === 'assistant' &&
+          message.tool_calls?.some((call) => call.function?.name === 'send_agent_message'),
+      );
+      if (!sent && (isA || incoming)) {
+        const rosterText = String(input.messages[0].content).match(/同伴地址簿[^\n]*：(\[[^\n]*\])/)[1];
+        const peer = JSON.parse(rosterText)[0];
+        call('send_agent_message', {
+          toAgentId: peer.id,
+          content: isA
+            ? '我完成了接口实现，请帮忙复核空输入的处理。'
+            : '已复核：空输入应返回明确提示，我把检查结果发给你。',
+        });
+        toolCall = true;
+      } else if (!incoming) {
+        call('receive_agent_messages', { waitMs: 1000 });
+        toolCall = true;
+      } else {
+        const gate = Promise.withResolvers();
+        subagentGates.add(gate.resolve);
+        response.once('close', gate.resolve);
+        send({ reasoning_content: '已读到同伴的建议，正在整理协作结果。' });
+        await gate.promise;
+        subagentGates.delete(gate.resolve);
+        if (response.destroyed) return;
+        send({ content: isA ? '已根据审查伙伴建议补充空输入处理。' : '已向实现伙伴反馈复核结果。' });
+      }
+    }
+    send({}, toolCall ? 'tool_calls' : 'stop');
+    response.end('data: [DONE]\n\n');
+    return;
+  }
   if (question === '持续滚动测试' || question === '思考预览测试') {
     displayStreams.set(question, send);
     response.once('close', () => displayStreams.delete(question));

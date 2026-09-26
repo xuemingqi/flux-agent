@@ -313,11 +313,12 @@ export class RunManager {
           this.persist(run);
           this.notify(run.id);
         },
-        recordSubagent: (task) => {
+        recordSubagent: (task, durable) => {
           const index = run.subagents.findIndex((entry) => entry.id === task.id);
           if (index < 0) run.subagents.push(structuredClone(task));
           else run.subagents[index] = structuredClone(task);
-          if (task.status !== 'running' || Date.now() - (this.persistedAt.get(run.id) ?? 0) >= 500) this.persist(run);
+          if (durable || task.status !== 'running' || Date.now() - (this.persistedAt.get(run.id) ?? 0) >= 500)
+            this.persist(run);
           this.notify(run.id);
         },
         ...(runtime.supportsSteering

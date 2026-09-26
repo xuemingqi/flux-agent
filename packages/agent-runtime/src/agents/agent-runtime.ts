@@ -10,6 +10,7 @@ import type {
   ContextCompaction,
   ContextCompressionProgress,
   AgentTask,
+  AgentCommunication,
 } from '@flux-agent/contracts';
 
 export interface ToolRequest {
@@ -57,7 +58,16 @@ export interface AgentExecutionContext {
   /** 摘要分块进行中实时通知宿主，结束后清空，避免静默等待。 */
   recordCompression?(progress: ContextCompressionProgress | null): void;
   /** 子 Agent 的状态与过程由宿主持久化和推送，子任务不直接向用户输出。 */
-  recordSubagent?(task: AgentTask): void;
+  recordSubagent?(task: AgentTask, durable?: boolean): void;
+  /** 同一次委派内的协作通道；不授予工具权限，也不能派生新 Agent。 */
+  collaboration?: {
+    roster(): { id: string; name: string; task: string; status: AgentTask['status'] }[];
+    pending(): AgentCommunication[];
+    send(toAgentId: string, content: string): AgentCommunication;
+    delivered(ids: string[]): void;
+    wait(timeoutMs: number, signal: AbortSignal): Promise<void>;
+    finish(): boolean;
+  };
   /** 可选的本轮消息收件箱，由宿主管理持久化和关闭时机。 */
   steering?: SteeringInbox;
   /**

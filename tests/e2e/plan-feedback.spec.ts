@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test('shows a tool-updated plan and persists editable feedback across reloads', async ({ page }) => {
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('按计划读取测试文件');
   await page.getByRole('button', { name: '发送', exact: true }).click();
-  const plan = page.getByLabel('任务计划', { exact: true });
+  const plan = page.locator('.assistant-run > .run-plan');
   await expect(page.getByText('已按计划读取并整理测试文件。', { exact: true })).toBeVisible();
   await expect(plan).toContainText('2/2 已完成');
   await plan.locator('summary').click();
@@ -39,7 +39,7 @@ test('shows a tool-updated plan and persists editable feedback across reloads', 
 test('streams and reconnects to an active plan and leaves steps incomplete after stopping', async ({ page }) => {
   await page.getByRole('textbox', { name: '消息', exact: true }).fill('计划中途停止');
   await page.getByRole('button', { name: '发送', exact: true }).click();
-  const plan = page.getByLabel('任务计划', { exact: true });
+  const plan = page.locator('.assistant-run > .run-plan');
   await expect(plan).toContainText('0/2 已完成');
   await expect(plan.locator('li').first()).toContainText('进行中');
   await expect(page.getByRole('button', { name: '有帮助', exact: true })).toHaveCount(0);

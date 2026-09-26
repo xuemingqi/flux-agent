@@ -97,7 +97,12 @@ export type MemoryUpdate = z.infer<typeof memoryUpdateSchema>;
 
 // 原生消息与页面展示步骤分开存储，保留工具调用与返回值的关联。
 export const modelMessageSchema = z.discriminatedUnion('role', [
-  z.object({ role: z.literal('user'), content: z.string(), steeringId: z.string().optional() }),
+  z.object({
+    role: z.literal('user'),
+    content: z.string(),
+    steeringId: z.string().optional(),
+    collaborationId: z.string().optional(),
+  }),
   z.object({
     role: z.literal('assistant'),
     content: z.string(),
@@ -258,6 +263,18 @@ export type RunFeedback = z.infer<typeof runFeedbackSchema>;
 export const agentIdentitySchema = z.object({ name: z.string(), version: z.string() });
 export type AgentIdentity = z.infer<typeof agentIdentitySchema>;
 
+export const agentCommunicationSchema = z.object({
+  id: z.string(),
+  fromAgentId: z.string(),
+  toAgentId: z.string(),
+  content: z.string(),
+  kind: z.enum(['message', 'handoff']),
+  status: z.enum(['pending', 'delivered', 'not_delivered']),
+  createdAt: z.string(),
+  deliveredAt: z.string().nullable(),
+});
+export type AgentCommunication = z.infer<typeof agentCommunicationSchema>;
+
 export const agentTaskSchema = z.object({
   /**
    * 创建此任务的委派调用，用于在对应工具旁展示进度；旧记录没有该字段。
@@ -273,6 +290,8 @@ export const agentTaskSchema = z.object({
   output: z.string(),
   steps: z.array(runStepSchema),
   messages: z.array(modelMessageSchema),
+  /** 发出的真实协作消息；送达表示已纳入接收方模型请求，不等同于已回复。 */
+  communications: z.array(agentCommunicationSchema).optional(),
   context: z.array(contextRecordSchema),
   compaction: contextCompactionSchema.nullable(),
   usage: tokenUsageSchema.nullable(),

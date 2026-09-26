@@ -3,6 +3,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { DEFAULT_PERMISSION_MODE, type ModelSettings } from '@flux-agent/contracts';
 import AppIcon from './components/AppIcon.vue';
 import AssistantRun from './components/AssistantRun.vue';
+import AgentWorld from './components/AgentWorld.vue';
 import { useChat } from './composables/use-chat';
 import ModelSettingsPage from './pages/ModelSettingsPage.vue';
 import PermissionSelector from './components/PermissionSelector.vue';
@@ -41,8 +42,21 @@ const {
   send,
   cancel,
 } = useChat();
+type ChatView = 'conversation' | 'trace' | 'world';
+function savedView(): ChatView {
+  try {
+    const value = localStorage.getItem('flux-chat-view');
+    if (value === 'trace' || value === 'world') return value;
+  } catch {
+    // 浏览器禁用本地存储时仍可切换展示方式。
+  }
+  return 'conversation';
+}
+const view = ref<ChatView>(savedView());
 const conversation = useTemplateRef<HTMLElement>('conversation');
 const conversationContent = useTemplateRef<HTMLElement>('conversationContent');
+// 场景以角色为阅读起点，不跟随聊天内容自动滚到底部。
+const followViewport = computed(() => (view.value === 'world' ? null : conversation.value));
 const {
   following: followOutput,
   scrollToLatest,
@@ -52,7 +66,7 @@ const {
   onTouchStart,
   onTouchMove,
   onKeydown: onScrollKeydown,
-} = useFollowScroll(conversation, conversationContent);
+} = useFollowScroll(followViewport, conversationContent);
 const inspector = useToolInspector(thread);
 const { tabs: inspectorTabs, activeId: inspectorActiveId } = inspector;
 let inspectionOpener: HTMLElement | null = null;
@@ -76,7 +90,6 @@ function closeInspector(id?: string) {
 }
 const composerInput = ref<HTMLTextAreaElement>();
 const page = ref<'chat' | 'model-settings' | 'memory'>('chat');
-const view = ref<'conversation' | 'trace'>('conversation');
 const sidebarOpen = ref(window.innerWidth > 760);
 const collapsedWorkspaces = ref(new Set<string>());
 const turns = computed(
@@ -125,11 +138,24 @@ function openNewThread(id = workspaceId.value) {
   void newThread(id);
 }
 
-watch(() => thread.value?.id, scrollToLatest);
+watch(
+  () => thread.value?.id,
+  async () => {
+    if (view.value !== 'world') return scrollToLatest();
+    pauseFollowing();
+    await nextTick();
+    conversation.value?.scrollTo({ top: 0 });
+  },
+);
 watch(workspaceId, () => {
   collapsedWorkspaces.value.delete(workspaceId.value);
 });
 watch(view, async (selected) => {
+  try {
+    localStorage.setItem('flux-chat-view', selected);
+  } catch {
+    // 展示偏好不影响任务执行。
+  }
   if (selected === 'conversation') return scrollToLatest();
   pauseFollowing();
   await nextTick();
@@ -271,6 +297,16 @@ function toggleWorkspace(id: string) {
             >
               轨迹<span v-if="stepCount" class="tab-count">{{ stepCount }}</span>
             </button>
+            <button
+              id="world-tab"
+              role="tab"
+              :aria-selected="view === 'world'"
+              aria-controls="world-panel"
+              :class="{ active: view === 'world' }"
+              @click="view = 'world'"
+            >
+              <AppIcon name="agents" :size="15" />协作空间
+            </button>
           </div>
         </header>
 
@@ -289,12 +325,12 @@ function toggleWorkspace(id: string) {
         />
         <template v-else>
           <section
-            :id="view === 'conversation' ? 'conversation-panel' : 'trace-panel'"
+            :id="`${view}-panel`"
             ref="conversation"
             class="conversation"
             role="tabpanel"
             tabindex="0"
-            :aria-labelledby="view === 'conversation' ? 'conversation-tab' : 'trace-tab'"
+            :aria-labelledby="`${view}-tab`"
             :aria-busy="loading"
             @scroll="trackScroll"
             @wheel.passive="onWheel"
@@ -303,7 +339,15 @@ function toggleWorkspace(id: string) {
             @keydown="onScrollKeydown"
             @click="onConversationClick"
           >
-            <div v-if="!turns.length && view === 'conversation'" class="welcome">
+            <AgentWorld
+              v-if="view === 'world'"
+              :turns="turns"
+              :approval-pending="approvalPending"
+              @decide="decideApproval"
+              @inspect="inspectTool"
+              @open-file="previewFile"
+            />
+            <div v-else-if="!turns.length && view === 'conversation'" class="welcome">
               <div class="welcome-brand"><AppIcon name="spark" :size="38" /><span>flux</span></div>
               <h2>有什么想一起探索的？</h2>
               <p :title="workspace?.rootPath">从一个问题开始，也可以一起探索 {{ workspace?.name || '你的工作区' }}。</p>
@@ -354,7 +398,7 @@ function toggleWorkspace(id: string) {
 
           <footer class="composer-area">
             <button
-              v-if="!followOutput && turns.length"
+              v-if="view !== 'world' && !followOutput && turns.length"
               class="jump-latest icon-button"
               aria-label="回到最新消息"
               @click="scrollToLatest"

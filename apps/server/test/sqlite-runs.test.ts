@@ -120,6 +120,18 @@ describe('SQLite run storage', () => {
               { role: 'user', content: '读取' },
               { role: 'assistant', content: '子任务结果' },
             ],
+            communications: [
+              {
+                id: 'letter',
+                fromAgentId: 'child',
+                toAgentId: 'peer',
+                content: '请复核发现',
+                kind: 'message',
+                status: 'delivered',
+                createdAt: summary.createdAt,
+                deliveredAt: summary.createdAt,
+              },
+            ],
             context: [],
             compaction: null,
             usage: null,
@@ -145,12 +157,19 @@ describe('SQLite run storage', () => {
     const restored = reopened.runs.get(run.id)!;
     restored.status = 'running';
     restored.subagents[0]!.status = 'running';
+    restored.subagents[0]!.communications![0]!.status = 'pending';
+    restored.subagents[0]!.communications![0]!.deliveredAt = null;
     reopened.saveRun(reopened.threads.get(run.threadId)!, restored);
     reopened.close();
     stores.splice(stores.indexOf(reopened), 1);
     const recovered = new SqliteRunStore(path);
     stores.push(recovered);
     expect(recovered.runs.get(run.id)?.subagents[0]).toMatchObject({ status: 'interrupted', output: '子任务结果' });
+    expect(recovered.runs.get(run.id)?.subagents[0]?.communications?.[0]).toMatchObject({
+      content: '请复核发现',
+      status: 'not_delivered',
+      deliveredAt: null,
+    });
   });
 
   it('deletes a workspace conversation and all related records while preserving other workspaces and memory', async () => {

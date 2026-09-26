@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { AgentTask } from '@flux-agent/contracts';
+import AgentCommunications from './AgentCommunications.vue';
+import { worldCommunications } from './agent-world';
 import RunStepContent from './RunStepContent.vue';
 import ContextDetails from './ContextDetails.vue';
 import type { ToolInspection } from './tool-presentation';
@@ -54,5 +56,6 @@ function activity(task: AgentTask): string {
         />
       </div>
     </details>
+    <AgentCommunications :messages="worldCommunications(tasks)" />
   </section>
 </template>
