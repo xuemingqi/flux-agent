@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useId, watch } from 'vue';
-import { createAnimalScene, animalNames, animalEmoji } from './animal-scene';
+import { createAnimalScene, avatarNames } from './animal-scene';
 import type { WorldAgent, WorldCommunication } from './agent-world';
 import type { ToolStep } from './tool-presentation';
 import AgentMessageHistory from './AgentMessageHistory.vue';
@@ -27,7 +27,7 @@ const insight = computed(() => {
     if (agent)
       return {
         title: agent.name,
-        subtitle: `${animalNames[index % 4]} · ${agent.label}`,
+        subtitle: `${avatarNames[index % 4]} · ${agent.label}`,
         history: agent.history,
         count: agent.history.reduce((count, round) => count + round.entries.length, 0),
         content: '',
@@ -97,8 +97,8 @@ function fail() {
   scene = undefined;
 }
 watch(
-  () => [props.agents, props.selectedId] as const,
-  () => scene?.update(props.agents, props.selectedId),
+  () => props.agents,
+  () => scene?.update(props.agents),
 );
 watch(
   () => props.communications,
@@ -145,7 +145,7 @@ onMounted(() => {
       },
       unavailable: fail,
     });
-    scene.update(props.agents, props.selectedId);
+    scene.update(props.agents);
     visibility = new IntersectionObserver(([entry]) => scene?.visibility(entry?.isIntersecting ?? false));
     visibility.observe(container.value!);
     if (queue.length) next();
@@ -167,19 +167,22 @@ function preview(text: string) {
     ref="container"
     class="animal-workroom"
     :class="{ 'scene-fallback': failed, 'scene-dense': agents.length > 4 }"
+    data-scene-style="cyberpunk-pixel"
     :data-renderer="failed ? 'fallback' : ready ? 'webgl' : 'loading'"
     :data-encounter-phase="encounterPhase"
     @keydown.esc.stop="closeInsight"
   >
     <div class="workroom-toolbar">
-      <div>
-        <span class="room-dot" />协作工作室 <small>{{ agents.length }} 位伙伴 · 开放办公空间</small>
+      <div class="workroom-title">
+        <span class="room-dot" />
+        <span><strong>CYBER OPS</strong>协作工作室</span>
+        <small>{{ agents.length }} 位伙伴 · 实时状态联动</small>
       </div>
       <button v-if="!failed" type="button" @click="paused = !paused">{{ paused ? '继续动画' : '暂停动画' }}</button>
     </div>
     <div class="animal-viewport" role="group" aria-label="Agent 协作场景">
-      <canvas v-show="!failed" ref="canvas" aria-label="3D 小动物协作场景" role="img" />
-      <div v-if="!ready && !failed" class="scene-loading">正在布置协作空间…</div>
+      <canvas v-show="!failed" ref="canvas" aria-label="赛博像素 Agent 协作场景" role="img" />
+      <div v-if="!ready && !failed" class="scene-loading">正在同步协作空间…</div>
       <div class="animal-labels" :class="{ visible: ready || failed }">
         <button
           v-for="(agent, index) in agents"
@@ -207,7 +210,7 @@ function preview(text: string) {
             <small>{{ agent.bubbleKind }}</small>
             <MessageContent inert :content="preview(agent.bubble)" />
           </div>
-          <span v-if="failed" class="fallback-animal" aria-hidden="true">{{ animalEmoji[index % 4] }}</span>
+          <span v-if="failed" class="fallback-avatar" :data-variant="index % 4" aria-hidden="true"></span>
           <span class="animal-name" :title="agent.name">{{ agent.name }}</span>
           <span class="animal-state">{{ agent.label }}</span>
         </button>
@@ -258,61 +261,94 @@ function preview(text: string) {
       </section>
     </div>
     <div class="workroom-footer">
-      <span>{{ failed ? '当前设备使用简洁角色展示' : '点击小动物或消息，展开查看详情' }}</span
-      ><span>{{ active ? '正在呈现真实消息' : '呼吸 · 眨眼 · 忙碌中' }}</span>
+      <span>{{ failed ? '当前设备使用简洁角色展示' : '点击像素机师或消息，展开执行详情' }}</span
+      ><span>{{ active ? '正在呈现真实通信' : '思考扫描 · 工具操作 · 协作通信' }}</span>
     </div>
   </div>
 </template>
 <style scoped>
 .animal-workroom {
-  --ink: #344257;
-  border: 1px solid #b8c4d4;
+  --ink: #e6edf7;
+  --cyber-cyan: #48dff7;
+  --cyber-violet: #9d7cff;
+  border: 1px solid #303038;
   border-radius: 12px;
   overflow: hidden;
-  background: #f1f4f8;
+  background: #17171a;
   color: var(--ink);
-  box-shadow: 0 16px 50px #0002;
+  box-shadow:
+    0 18px 50px #00000038,
+    inset 0 1px #ffffff08;
 }
 .workroom-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 13px 16px;
   font-size: 13px;
   position: relative;
   z-index: 2;
+  background: linear-gradient(90deg, #1b1b1e 0%, #17171a 100%);
+  border-bottom: 1px solid #2d2d32;
 }
-.workroom-toolbar > div {
+.workroom-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+.workroom-title > span:not(.room-dot) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workroom-title strong {
+  color: var(--cyber-cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  font-weight: 600;
+}
 .workroom-toolbar small {
-  color: #65748a;
+  color: #7f8088;
   font-size: 11px;
   margin-left: 4px;
 }
 .room-dot {
-  width: 7px;
-  height: 7px;
-  background: #608ec2;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px #608ec214;
+  width: 6px;
+  height: 6px;
+  background: var(--cyber-cyan);
+  box-shadow:
+    0 0 0 3px #48dff714,
+    0 0 11px #48dff788;
 }
 .workroom-toolbar button {
-  background: #ffffff80;
-  color: #4d6482;
-  border: 1px solid #cbd5e2;
-  border-radius: 12px;
+  background: #ffffff05;
+  color: #a7a8ae;
+  border: 1px solid #3a3a40;
+  border-radius: 6px;
   font: inherit;
   font-size: 11px;
   padding: 5px 10px;
   cursor: pointer;
 }
+.workroom-toolbar button:hover {
+  color: #eef8ff;
+  border-color: #51515a;
+}
 .animal-viewport {
   position: relative;
   height: clamp(460px, 62vh, 760px);
-  background: radial-gradient(ellipse at 50% 20%, #fafbfe 0, #e9eef5 65%, #dbe3ed 100%);
+  background: radial-gradient(ellipse at 50% 10%, #1e2534 0, #0d1119 54%, #080a0f 100%), #0b0d13;
+}
+.animal-viewport::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  opacity: 0.2;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, #b9eaff08 3px 4px);
+  mix-blend-mode: screen;
 }
 canvas {
   display: block;
@@ -324,10 +360,15 @@ canvas {
   position: absolute;
   inset: 45% 0;
   text-align: center;
-  color: #65748a;
-  font-size: 13px;
+  color: #7f91aa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
 }
 .animal-labels {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -338,33 +379,61 @@ canvas {
   position: absolute;
   transform: translate(-50%, 0);
   width: 108px;
-  padding: 5px 7px;
-  background: #ffffffdc;
-  border: 1px solid #ffffffbb;
-  border-radius: 9px;
+  padding: 6px 8px 7px;
+  background: #151920e8;
+  border: 1px solid #38414f;
+  border-left: 2px solid #586374;
+  border-radius: 5px;
   color: var(--ink);
   font: inherit;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 5px 15px #4e684e12;
+  box-shadow: 0 7px 18px #00000055;
+  backdrop-filter: blur(8px);
 }
 .world-agent:hover,
 .world-agent.selected {
-  border-color: #7498c6;
+  border-color: var(--cyber-cyan);
   box-shadow:
-    0 0 0 3px #7498c622,
-    0 5px 15px #4e684e12;
+    0 0 0 1px #48dff724,
+    0 0 18px #48dff724,
+    0 8px 20px #00000070;
+}
+.world-agent[data-activity='thinking'],
+.world-agent[data-activity='reading'] {
+  border-left-color: #48dff7;
+}
+.world-agent[data-activity='writing'],
+.world-agent[data-activity='command'],
+.world-agent[data-activity='working'] {
+  border-left-color: #ff5edb;
+}
+.world-agent[data-activity='delegating'],
+.world-agent[data-activity='speaking'] {
+  border-left-color: #9d7cff;
+}
+.world-agent[data-activity='waiting'] {
+  border-left-color: #ffc857;
+}
+.world-agent[data-activity='done'] {
+  border-left-color: #5cd89f;
+}
+.world-agent[data-activity='failed'],
+.world-agent[data-activity='cancelled'] {
+  border-left-color: #ff6b6b;
 }
 .animal-name {
   display: block;
+  color: #f2f5fa;
   font-size: 11px;
+  font-weight: 520;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .animal-state {
   display: block;
-  color: #62758f;
+  color: #8e9aad;
   font-size: 10px;
   margin-top: 2px;
   overflow: hidden;
@@ -378,12 +447,13 @@ canvas {
   transform: translateX(-50%);
   display: block;
   width: 112px;
-  background: #fffffff5;
-  padding: 5px 8px;
+  background: #10141bea;
+  padding: 6px 8px;
   text-align: left;
-  border: 1px solid #ffffff;
-  border-radius: 9px 9px 9px 3px;
-  box-shadow: 0 5px 22px #526b8920;
+  border: 1px solid #354052;
+  border-radius: 6px 6px 6px 2px;
+  box-shadow: 0 8px 24px #00000066;
+  backdrop-filter: blur(9px);
   pointer-events: auto;
 }
 .world-bubble small {
@@ -402,10 +472,10 @@ canvas {
   text-overflow: ellipsis;
 }
 .world-agent:not(.selected) .world-bubble {
-  opacity: 0.8;
+  opacity: 0.72;
 }
 .scene-dense .world-agent {
-  width: 90px;
+  width: 84px;
 }
 .scene-dense .world-bubble {
   width: 28px;
@@ -440,10 +510,13 @@ canvas {
   left: 50%;
   transform: translateX(-50%);
   width: min(240px, calc(100% - 24px));
-  background: #f8fbfff5;
-  border: 1px solid #9db6d6;
-  border-radius: 11px 11px 11px 4px;
-  box-shadow: 0 12px 30px #6c7a5825;
+  background: #121620f2;
+  border: 1px solid #7b6ce8;
+  border-radius: 7px 7px 7px 2px;
+  box-shadow:
+    0 0 24px #8b5cf62b,
+    0 12px 30px #00000066;
+  backdrop-filter: blur(10px);
 }
 .encounter-bubble button {
   display: block;
@@ -467,7 +540,7 @@ canvas {
   overflow: hidden;
 }
 .encounter-bubble small {
-  color: #60799b;
+  color: #b29cff;
   font-size: 9px;
 }
 .encounter-bubble :deep(.markdown) {
@@ -489,10 +562,13 @@ canvas {
   max-height: calc(100% - 24px);
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #bdccde;
-  border-radius: 14px;
-  box-shadow: 0 12px 35px #42583b30;
+  background: #17191ef5;
+  border: 1px solid #3d424d;
+  border-radius: 9px;
+  box-shadow:
+    0 0 0 1px #48dff70d,
+    0 18px 45px #00000099;
+  backdrop-filter: blur(16px);
   text-align: left;
 }
 .insight-heading {
@@ -501,18 +577,19 @@ canvas {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid #dce3ed;
+  border-bottom: 1px solid #30343c;
 }
 .insight-heading strong {
   display: block;
   font-size: 13px;
   font-weight: 600;
+  color: #f0f4fa;
   overflow-wrap: anywhere;
 }
 .insight-heading small {
   display: block;
   font-size: 10px;
-  color: #65748a;
+  color: #8792a3;
   margin-top: 5px;
 }
 .insight-heading button {
@@ -522,7 +599,7 @@ canvas {
   border: 0;
   font: inherit;
   font-size: 11px;
-  color: #65748a;
+  color: #8d929e;
   cursor: pointer;
 }
 .insight-heading button span {
@@ -535,48 +612,48 @@ canvas {
   overscroll-behavior: contain;
   padding: 12px 16px 16px;
 }
-/* 详情与缩略消息复用安全 Markdown，在浅色场景中保持可读。 */
+/* 详情与缩略消息复用安全 Markdown，并与工作台的深色主题保持一致。 */
 .insight-caption {
   padding: 10px 16px 0;
-  color: #65748a;
+  color: #737b89;
   font-size: 10px;
 }
 .insight-content :deep(.markdown) {
-  color: #344257;
+  color: #d7dce5;
   font-size: 13px;
   line-height: 1.8;
 }
 :deep(.markdown strong) {
-  color: #24354e;
+  color: #f1f5fb;
 }
 :deep(.markdown a) {
-  color: #315f9c;
+  color: #6fdff3;
 }
 :deep(.markdown code) {
-  color: #344257;
-  background: #e9eef5;
+  color: #c9e8ef;
+  background: #222832;
 }
 :deep(.markdown pre) {
-  background: #edf1f6;
-  border-color: #dce3ed;
+  background: #101318;
+  border-color: #303742;
   padding: 12px;
 }
 :deep(.markdown pre code) {
   background: transparent;
 }
 :deep(.markdown blockquote) {
-  color: #65748a;
-  border-color: #91a8c8;
+  color: #929bab;
+  border-color: #667995;
 }
 :deep(.markdown th),
 :deep(.markdown td) {
-  border-color: #d1dbe7;
+  border-color: #353b46;
 }
 :deep(.markdown th) {
-  background: #e9eef5;
+  background: #222832;
 }
 :deep(.markdown hr) {
-  border-color: #d1dbe7;
+  border-color: #353b46;
 }
 .insight-content :deep(.markdown h1) {
   font-size: 19px;
@@ -608,8 +685,9 @@ canvas {
   justify-content: space-between;
   gap: 10px;
   font-size: 10px;
-  color: #65748a;
-  border-top: 1px solid #dce3ed;
+  color: #747985;
+  background: #17171a;
+  border-top: 1px solid #2d2d32;
 }
 .scene-fallback .animal-viewport {
   height: auto;
@@ -634,10 +712,45 @@ canvas {
   transform: none;
   width: auto;
 }
-.fallback-animal {
+.fallback-avatar {
+  --avatar-accent: #48dff7;
+  position: relative;
   display: block;
-  font-size: 72px;
-  margin: 15px 0;
+  width: 48px;
+  height: 40px;
+  margin: 22px auto 28px;
+  background: #1f2a38;
+  border: 5px solid #0a0d13;
+  box-shadow:
+    -8px -8px 0 -4px var(--avatar-accent),
+    8px -8px 0 -4px var(--avatar-accent);
+}
+.fallback-avatar::before {
+  position: absolute;
+  inset: 11px 6px auto;
+  height: 7px;
+  content: '';
+  background: var(--avatar-accent);
+  box-shadow: 0 0 10px var(--avatar-accent);
+}
+.fallback-avatar::after {
+  position: absolute;
+  top: 40px;
+  left: 6px;
+  width: 26px;
+  height: 14px;
+  content: '';
+  background: #212b38;
+  border-top: 3px solid var(--avatar-accent);
+}
+.fallback-avatar[data-variant='1'] {
+  --avatar-accent: #ff5edb;
+}
+.fallback-avatar[data-variant='2'] {
+  --avatar-accent: #ffc857;
+}
+.fallback-avatar[data-variant='3'] {
+  --avatar-accent: #9d7cff;
 }
 @media (max-width: 600px) {
   .animal-viewport {

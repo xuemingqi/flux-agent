@@ -83,7 +83,7 @@ function inspectHistory(runId: string, agentId: string, step: ToolStep) {
       </label>
     </div>
     <div v-if="!turn || !selected" class="world-empty">
-      <span class="world-empty-animal" aria-hidden="true">🦊</span>
+      <span class="world-empty-avatar" aria-hidden="true"></span>
       <h3>等待第一个任务</h3>
       <p>发送消息后，在这里查看 Agent 的工作状态与执行过程。</p>
     </div>
@@ -252,9 +252,35 @@ function inspectHistory(runId: string, agentId: string, step: ToolStep) {
     padding: 22px 16px;
   }
 }
-.world-empty-animal {
+.world-empty-avatar {
+  position: relative;
   display: block;
-  font-size: 88px;
-  margin-bottom: 16px;
+  width: 58px;
+  height: 48px;
+  margin: 12px auto 34px;
+  background: #222c3a;
+  border: 6px solid #0d1016;
+  box-shadow:
+    -10px -10px 0 -5px #48dff7,
+    10px -10px 0 -5px #9d7cff,
+    0 0 28px #48dff71f;
+}
+.world-empty-avatar::before {
+  position: absolute;
+  inset: 13px 7px auto;
+  height: 8px;
+  content: '';
+  background: linear-gradient(90deg, #48dff7 0 45%, #1c3440 45% 55%, #9d7cff 55%);
+  box-shadow: 0 0 12px #48dff777;
+}
+.world-empty-avatar::after {
+  position: absolute;
+  top: 48px;
+  left: 8px;
+  width: 30px;
+  height: 18px;
+  content: '';
+  background: #222c3a;
+  border-top: 3px solid #48dff7;
 }
 </style>

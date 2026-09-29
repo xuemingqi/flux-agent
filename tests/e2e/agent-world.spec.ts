@@ -17,7 +17,12 @@ test('switches between the original views and live agents without starting anoth
     await page.getByRole('tab', { name: '协作空间' }).click();
     const scene = page.getByRole('group', { name: 'Agent 协作场景' });
     await expect(page.locator('.animal-workroom')).toHaveAttribute('data-renderer', 'webgl');
+    await expect(page.locator('.animal-workroom')).toHaveAttribute('data-scene-style', 'cyberpunk-pixel');
     await expect(scene.getByRole('button')).toHaveCount(3);
+    const agentTops = await scene
+      .locator('.world-agent')
+      .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().top));
+    expect(Math.max(...agentTops) - Math.min(...agentTops)).toBeGreaterThan(20);
     await expect(scene.getByRole('button', { name: '查看 分析 B 的过程' })).toContainText('正在思考');
     await scene.getByRole('button', { name: '查看 分析 B 的过程' }).click();
     const insight = page.getByRole('region', { name: 'Agent 信息详情' });
@@ -141,8 +146,20 @@ test('delivers real sibling messages, animates a meeting and preserves the excha
     await expect(page.getByLabel('当前 Agent 交流')).toContainText('实现伙伴');
     await expect(page.getByLabel('当前 Agent 交流')).toContainText('审查伙伴');
     await expect(page.getByLabel('当前 Agent 交流')).toContainText('请帮忙复核空输入');
+    const movingAgent = room.getByRole('button', { name: '查看 实现伙伴 的过程' });
+    const meetingPosition = await movingAgent.boundingBox();
     await page.getByRole('button', { name: '暂停动画', exact: true }).click();
     await page.screenshot({ path: testInfo.outputPath('animal-agent-meeting.png') });
+    await page.getByRole('button', { name: '继续动画', exact: true }).click();
+    await expect(room).toHaveAttribute('data-encounter-phase', 'returning', { timeout: 7_000 });
+    await expect
+      .poll(async () => {
+        const current = await movingAgent.boundingBox();
+        if (!current || !meetingPosition) return 0;
+        return Math.hypot(current.x - meetingPosition.x, current.y - meetingPosition.y);
+      })
+      .toBeGreaterThan(8);
+    await page.screenshot({ path: testInfo.outputPath('animal-agent-returning.png') });
     await page.reload();
     await expect(record.locator('li')).toHaveCount(2);
     await expect(page.getByLabel('当前 Agent 交流')).toHaveCount(0);
