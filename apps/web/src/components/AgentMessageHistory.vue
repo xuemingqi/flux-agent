@@ -56,20 +56,40 @@ const time = (value: string) => new Date(value).toLocaleTimeString([], { hour: '
 </template>
 
 <style scoped>
+.agent-message-history {
+  color: #dfe7f2;
+}
 .history-round + .history-round {
   margin-top: 28px;
 }
 .history-round-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   font-weight: 600;
-  color: #516b91;
+  color: #74e9f8;
+  letter-spacing: 0.05em;
   margin-bottom: 10px;
 }
+.history-round-heading::before {
+  width: 5px;
+  height: 5px;
+  content: '';
+  background: #48dff7;
+  box-shadow: 0 0 8px #48dff799;
+}
 .history-task {
-  background: #eef2f7;
-  padding: 10px 12px;
+  background: #0f1822;
+  border: 1px solid #253746;
+  border-left: 2px solid #48dff7;
+  padding: 11px 13px;
   border-radius: 8px;
   margin-bottom: 16px;
+  box-shadow: inset 0 1px #ffffff05;
+}
+.history-task :deep(.markdown) {
+  color: #dfe7f2;
 }
 .history-entries {
   list-style: none;
@@ -77,7 +97,7 @@ const time = (value: string) => new Date(value).toLocaleTimeString([], { hour: '
   padding: 0;
 }
 .history-entries > li + li {
-  border-top: 1px solid #e6eaf0;
+  border-top: 1px solid #29323e;
   margin-top: 18px;
   padding-top: 18px;
 }
@@ -85,28 +105,38 @@ const time = (value: string) => new Date(value).toLocaleTimeString([], { hour: '
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  color: #65748a;
+  color: #8e9bad;
   font-size: 10px;
   margin-bottom: 8px;
 }
+.history-meta span {
+  color: #b8c9da;
+}
 .history-meta time {
   flex-shrink: 0;
+  color: #687789;
 }
 .history-tool {
+  padding: 10px 12px;
+  background: #111821;
+  border: 1px solid #293746;
+  border-radius: 7px;
   font-size: 12px;
 }
 .history-tool summary {
   cursor: pointer;
-  color: #4a607c;
+  color: #b9ddea;
 }
 .history-tool small {
-  color: #65748a;
+  color: #7e8b9c;
   font-size: 10px;
 }
 .history-tool summary small {
   float: right;
+  color: #9d8cff;
 }
 .history-target {
+  color: #8e9bad;
   overflow-wrap: anywhere;
 }
 .history-tool pre {
@@ -115,22 +145,29 @@ const time = (value: string) => new Date(value).toLocaleTimeString([], { hour: '
     monospace;
   overflow: auto;
   max-height: 240px;
-  background: #edf1f6;
+  color: #cbd8e6;
+  background: #090e14;
+  border: 1px solid #242f3b;
   padding: 10px;
   border-radius: 6px;
 }
 .history-tool button {
-  color: #315f9c;
-  background: none;
-  border: 1px solid #cbd6e5;
+  color: #75e8f8;
+  background: #10222c;
+  border: 1px solid #315765;
   border-radius: 5px;
   padding: 4px 8px;
   font: inherit;
   cursor: pointer;
   margin-bottom: 12px;
 }
+.history-tool button:hover {
+  color: #e8fbff;
+  border-color: #48dff7;
+  background: #14303b;
+}
 .history-empty {
-  color: #65748a;
+  color: #7e8b9c;
   font-size: 12px;
 }
 </style>

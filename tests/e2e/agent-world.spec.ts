@@ -28,6 +28,8 @@ test('switches between the original views and live agents without starting anoth
     const insight = page.getByRole('region', { name: 'Agent 信息详情' });
     await expect(insight).toContainText('子任务读取 B的思考');
     await expect(insight).toContainText('正在整理子任务结果');
+    await expect(insight.locator('.history-task')).toHaveCSS('background-color', 'rgb(15, 24, 34)');
+    await expect(insight.locator('.history-task .markdown')).toHaveCSS('color', 'rgb(223, 231, 242)');
     await expect(insight.locator('.history-tool')).toHaveCount(1);
     await expect(page.getByRole('region', { name: '分析 B 的执行过程' })).toContainText('正在整理子任务结果');
     await scene.getByRole('button', { name: '查看 分析 A 的过程' }).click();

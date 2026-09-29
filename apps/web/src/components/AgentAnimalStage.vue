@@ -562,11 +562,13 @@ canvas {
   max-height: calc(100% - 24px);
   display: flex;
   flex-direction: column;
-  background: #17191ef5;
-  border: 1px solid #3d424d;
+  color: #dfe7f2;
+  background: #0e131bf7;
+  border: 1px solid #354959;
   border-radius: 9px;
   box-shadow:
-    0 0 0 1px #48dff70d,
+    0 0 0 1px #48dff712,
+    0 0 28px #48dff70d,
     0 18px 45px #00000099;
   backdrop-filter: blur(16px);
   text-align: left;
@@ -577,19 +579,20 @@ canvas {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid #30343c;
+  background: linear-gradient(110deg, #121c27f2, #151620f2);
+  border-bottom: 1px solid #2a3a48;
 }
 .insight-heading strong {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #f0f4fa;
+  color: #f1f7fb;
   overflow-wrap: anywhere;
 }
 .insight-heading small {
   display: block;
   font-size: 10px;
-  color: #8792a3;
+  color: #8fa0b3;
   margin-top: 5px;
 }
 .insight-heading button {
@@ -599,8 +602,15 @@ canvas {
   border: 0;
   font: inherit;
   font-size: 11px;
-  color: #8d929e;
+  color: #91a0b1;
   cursor: pointer;
+}
+.insight-heading button:hover {
+  color: #7eeaf8;
+}
+.insight-heading button:focus-visible {
+  outline: 1px solid #48dff7;
+  outline-offset: 3px;
 }
 .insight-heading button span {
   font-size: 16px;
@@ -611,15 +621,16 @@ canvas {
   overflow: auto;
   overscroll-behavior: contain;
   padding: 12px 16px 16px;
+  scrollbar-color: #3c6270 #10161e;
 }
 /* 详情与缩略消息复用安全 Markdown，并与工作台的深色主题保持一致。 */
 .insight-caption {
   padding: 10px 16px 0;
-  color: #737b89;
+  color: #77889a;
   font-size: 10px;
 }
 .insight-content :deep(.markdown) {
-  color: #d7dce5;
+  color: #dfe7f2;
   font-size: 13px;
   line-height: 1.8;
 }
