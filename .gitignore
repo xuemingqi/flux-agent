@@ -13,3 +13,4 @@ test-results/
 *.db-wal
 *.db-shm
 *.tgz
+/apps/desktop/release/

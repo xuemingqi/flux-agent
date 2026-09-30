@@ -98,6 +98,7 @@ test('web serves the built UI, migrates SQLite and uses the caller workspace out
       }
     }
     assert.ok(stopped, `CLI did not stop gracefully: ${output}`);
-    assert.equal(stopped[0], 0, output);
+    // Windows 的 child.kill 直接终止进程，不触发 CLI 的 POSIX 信号清理。
+    if (process.platform !== 'win32') assert.equal(stopped[0], 0, output);
   }
 });

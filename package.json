@@ -16,6 +16,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build:cli": "pnpm build && node scripts/build-cli.mjs",
+    "desktop:dev": "pnpm build:cli && pnpm --filter @flux-agent/desktop start",
+    "desktop:build": "pnpm build:cli && pnpm --filter @flux-agent/desktop package",
+    "test:desktop": "node --test tests/desktop.test.mjs",
     "prepack": "pnpm build:cli",
     "test:cli": "pnpm build:cli && node --test tests/cli.test.mjs",
     "test:installers": "node --test tests/installers.test.mjs",
@@ -29,7 +32,7 @@
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
   },
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Local AI agent workbench with a web interface",
   "bin": {
     "flux-agent": "bin/flux-agent.mjs"

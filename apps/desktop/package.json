@@ -1,0 +1,16 @@
+{
+  "name": "@flux-agent/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/desktop.mjs start",
+    "package": "node scripts/desktop.mjs package",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "4.2.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
+  }
+}

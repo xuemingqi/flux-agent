@@ -68,7 +68,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 --port 3100 --
 
 ## npm CLI 使用与打包
 
-发布包名称为 `@yonyeyy/flux-agent`，当前版本 `0.1.3`，通过 [CNB 公开制品库](https://cnb.cool/yonyeyy/flux-agent) 分发。首次使用先配置该 scope 的下载地址，其他依赖继续使用原有 npm 源：
+发布包名称为 `@yonyeyy/flux-agent`，当前版本 `0.1.4`，通过 [CNB 公开制品库](https://cnb.cool/yonyeyy/flux-agent) 分发。首次使用先配置该 scope 的下载地址，其他依赖继续使用原有 npm 源：
 
 ```bash
 npm config set @yonyeyy:registry https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
@@ -93,10 +93,10 @@ pnpm test:cli
 npm pack
 ```
 
-`npm pack` 会通过 `prepack` 自动执行完整构建，只生成本地 `yonyeyy-flux-agent-0.1.3.tgz`，不会发布。可从其他目录安装该文件验证：
+`npm pack` 会通过 `prepack` 自动执行完整构建，只生成本地 `yonyeyy-flux-agent-0.1.4.tgz`，不会发布。可从其他目录安装该文件验证：
 
 ```bash
-npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.3.tgz -- flux-agent web
+npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.4.tgz -- flux-agent web
 ```
 
 根包通过 `bin/flux-agent.mjs` 提供命令；内部 workspace 模块由 esbuild 合并为 ESM 后端入口，第三方运行依赖由 npm 安装。`files` 只包含 CLI 和 `dist/`，另由 npm 自动包含 `package.json`、README 等标准文件；构建产物包含网页和 SQLite 迁移，不携带 `.env`、数据库、测试或本机 `node_modules`。SQLite 沿用 `better-sqlite3`，若目标平台没有匹配的预编译二进制，安装时需要本地编译工具链。
@@ -106,10 +106,43 @@ npm exec --package=/absolute/path/yonyeyy-flux-agent-0.1.3.tgz -- flux-agent web
 维护者完成认证后，可显式发布已验证的压缩包：
 
 ```bash
-npm publish ./yonyeyy-flux-agent-0.1.3.tgz --registry=https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
+npm publish ./yonyeyy-flux-agent-0.1.4.tgz --registry=https://npm.cnb.cool/yonyeyy/flux-agent/-/packages/
 ```
 
-## 启动
+## Electron 桌面版（macOS / Windows）
+
+npm 浏览器版与桌面版共用 Vue 页面、Agent 和后台代码，分别构建、分别发布。原有 npm / CNB 发布命令继续使用；Electron 的依赖、运行时和安装包不进入 npm 包。
+
+在 VS Code 中继续开发，安装仓库依赖后启动桌面版：
+
+```bash
+pnpm desktop:dev
+```
+
+该命令构建共享页面和后台，在 `apps/desktop/dist/app` 中复制锁文件对应的生产依赖，并只在该目录为 Electron 重编译 SQLite；不修改浏览器版使用的 Node.js 原生模块。桌面界面启用隔离与沙箱，不直接访问 Node.js；后台在独立进程中监听随机本机端口，可以与 npm 浏览器版同时运行。点击工作区加号使用 Electron 原生目录选择器，首次启动不自动把用户主目录作为工作区。
+
+桌面版默认把模型配置、会话和工作区记录保存在独立的系统应用数据目录：macOS 为 `~/Library/Application Support/Flux Agent`，Windows 为 `%APPDATA%/Flux Agent`。npm 浏览器版仍使用 `~/.flux-agent`，两者默认不共享配置和数据库。可以通过 `FLUX_DATA_DIR` 显式指定桌面数据目录；不要让两个正在运行的实例指向同一数据库。
+
+本机构建安装包和验证：
+
+```bash
+pnpm desktop:build                        # 当前系统和 CPU 架构
+pnpm desktop:build --mac --arm64          # Apple Silicon Mac
+pnpm desktop:build --mac --x64            # Intel Mac，建议在 Intel Mac 上构建验证
+pnpm desktop:build --win --x64            # Windows，建议在 Windows 上构建验证
+pnpm test:desktop                        # 在对应架构主机上验证已打包的应用
+pnpm test:cli                            # 验证 npm 浏览器入口仍能运行
+```
+
+安装包输出到 `apps/desktop/release/`：macOS 生成 `.dmg` 和 `.zip`，Windows 生成 NSIS `.exe` 安装程序。用户安装桌面包不需要另外安装 Node.js；Agent 调用的 Git、Python 等外部命令仍取决于用户电脑的工具环境。
+
+Windows 桌面版复用现有对话、文件工具和持久化功能，并增加原生目录选择。现有 `run_command` 工具仍只支持 macOS / Linux；Windows Shell 执行不在本次桌面包装改造中。Windows CI 运行桌面生命周期单元测试和实际应用启动测试，macOS 同时运行共享代码的完整单元测试（其中包含 POSIX Shell 用例）。
+
+[Desktop release 工作流](.github/workflows/desktop-release.yml) 在 macOS arm64、macOS x64 和 Windows x64 主机上分别构建、运行桌面与 npm 回归测试。手动执行工作流只生成可下载的 Actions 产物；推送与根包版本匹配的 `desktop-v<版本号>` 标签会在全部构建和验证成功后发布 GitHub Release 并上传安装包。桌面标签不会触发 npm 发布。
+
+当前没有配置签名证书和 macOS 公证；GitHub 构建默认产出未签名安装包，下载后系统可能提示来源未验证。签名、公证和自动更新不属于这次改造。
+
+## 源码启动
 
 推荐 Node.js 24 LTS，使用 `pnpm@11.19.0`。版本与依赖组合以 `pnpm-lock.yaml` 为准；TypeScript 固定为 5.9.3，以兼容当前 Vue 类型检查工具。
 
