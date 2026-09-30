@@ -1,6 +1,27 @@
 import { sqliteTable, text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core';
-import type { Approval, Message, Run, PermissionMode, MemoryEntry, ModelMessage } from '@flux-agent/contracts';
+import type {
+  Approval,
+  Message,
+  Run,
+  PermissionMode,
+  MemoryEntry,
+  ModelMessage,
+  Skill,
+  StoredMcpServer,
+} from '@flux-agent/contracts';
 import type { ToolExecution } from '../runs/run-store.js';
+
+export const skillEntries = sqliteTable('skills', {
+  name: text('name').primaryKey(),
+  /** Skill 原始文件与管理版本，重启后恢复。 */
+  snapshot: text('snapshot', { mode: 'json' }).$type<Skill>().notNull(),
+});
+
+export const mcpServers = sqliteTable('mcp_servers', {
+  name: text('name').primaryKey(),
+  /** 本机 MCP 配置及凭据；读取 API 只返回脱敏视图。 */
+  snapshot: text('snapshot', { mode: 'json' }).$type<StoredMcpServer>().notNull(),
+});
 
 export const modelSettings = sqliteTable('model_settings', {
   /**

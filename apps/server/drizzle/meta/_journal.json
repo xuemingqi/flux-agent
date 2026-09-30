@@ -36,6 +36,13 @@
       "when": 1790160179331,
       "tag": "0004_workspace_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790757728179,
+      "tag": "0005_skills_and_mcp",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { updatePlanSchema, type Run, type Workspace, type UpdatePlan, type RunPlan } from '@flux-agent/contracts';
+import {
+  updatePlanSchema,
+  capabilityToolSchema,
+  type Run,
+  type Workspace,
+  type UpdatePlan,
+  type RunPlan,
+} from '@flux-agent/contracts';
 import type { AgentExecutionContext, ToolRequest, ToolResult } from '@flux-agent/agent-runtime';
 import type { RunStore, ToolExecution } from '../runs/run-store.js';
 import type { ApprovalService } from '../permissions/approval-service.js';
@@ -7,13 +14,14 @@ import { ApplicationError } from '../api/application-error.js';
 import { contentHash, WorkspaceFiles } from './workspace-files.js';
 import { runCommand } from './command-runner.js';
 import type { MemoryService } from '../memory/memory-service.js';
+import type { CapabilityToolService } from './capability-tool-service.js';
 
 const pathSchema = z
   .string()
   .min(1)
   .max(4096)
   .refine((path) => !path.includes('\0'));
-const toolInputSchema = z.discriminatedUnion('name', [
+const workspaceToolInputSchema = z.discriminatedUnion('name', [
   z.object({ name: z.literal('update_plan'), input: updatePlanSchema }),
   z.object({
     name: z.literal('search_memories'),
@@ -40,6 +48,7 @@ const toolInputSchema = z.discriminatedUnion('name', [
     input: z.object({ command: z.string().trim().min(1).max(8000), cwd: pathSchema.optional() }).strict(),
   }),
 ]);
+const toolInputSchema = z.union([workspaceToolInputSchema, capabilityToolSchema]);
 
 export class ToolExecutionService {
   private readonly activeCalls = new Set<string>();
@@ -49,12 +58,14 @@ export class ToolExecutionService {
     private readonly protectedDirectory?: string,
     private readonly memory?: MemoryService,
     private readonly updatePlan?: (run: Run, input: UpdatePlan) => RunPlan,
+    private readonly capabilities?: CapabilityToolService,
   ) {}
 
   context(run: Run, workspace: Workspace): AgentExecutionContext {
     return {
       workspacePath: workspace.rootPath,
       permissionMode: run.permissionMode,
+      ...(this.capabilities ? { getCapabilities: () => this.capabilities!.catalog() } : {}),
       ...(this.updatePlan ? { getPlan: () => structuredClone(run.plan) } : {}),
       execute: (request, signal) => this.execute(run, workspace, request, signal),
     };
@@ -77,8 +88,8 @@ export class ToolExecutionService {
       signal.throwIfAborted();
       const parsed = toolInputSchema.safeParse(request);
       if (!parsed.success) throw new ApplicationError('INVALID_TOOL_INPUT', '工具参数格式不正确。');
-      const call = parsed.data;
-      const digest = contentHash(JSON.stringify(call.input));
+      const validated = parsed.data;
+      const digest = contentHash(JSON.stringify(validated.input));
       const previous = this.store.getExecution(run.id, request.id);
       if (previous)
         throw new ApplicationError('DUPLICATE_TOOL_CALL', '该调用已登记，不能重复执行；请检查原调用结果。', 409);
@@ -90,6 +101,20 @@ export class ToolExecutionService {
         status: 'started',
         result: null,
       };
+      const capabilityCall = capabilityToolSchema.safeParse(validated);
+      if (capabilityCall.success) {
+        if (!this.capabilities) throw new ApplicationError('CAPABILITY_UNAVAILABLE', '当前运行未配置能力管理。');
+        this.store.saveExecution(receipt);
+        const result = yield* this.capabilities.execute(run, request, capabilityCall.data, digest, signal);
+        this.store.saveExecution({
+          ...receipt,
+          status: result.failed ? 'failed' : 'succeeded',
+          result: result.content,
+        });
+        return result;
+      }
+      // 经过上面的能力分支后，只保留工作区工具的精确联合类型。
+      const call = workspaceToolInputSchema.parse(validated);
       if (call.name === 'update_plan') {
         if (!this.updatePlan) throw new ApplicationError('PLAN_UNAVAILABLE', '当前运行未配置任务计划。');
         this.store.saveExecution(receipt);

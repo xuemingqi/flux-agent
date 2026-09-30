@@ -1,11 +1,13 @@
 import type { Run, Thread, Workspace, ModelMessage } from '@flux-agent/contracts';
 import { InMemoryMemoryStore } from '../memory/in-memory-memory-store.js';
 import type { RunStore, ToolExecution } from './run-store.js';
+import { InMemoryCapabilityStore } from '../storage/capability-store.js';
 
 /**
  * 测试使用的非持久化适配器；生产入口使用 SQLite。
  */
 export class InMemoryRunStore implements RunStore {
+  readonly capabilities = new InMemoryCapabilityStore();
   readonly memory = new InMemoryMemoryStore();
   private readonly modelHistories = new Map<string, ModelMessage[]>();
 

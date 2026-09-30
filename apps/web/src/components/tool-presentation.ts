@@ -10,6 +10,20 @@ export interface ToolInspection {
 }
 
 const presentations: Record<string, { label: string; icon: string }> = {
+  list_skills: { label: 'Skill 列表', icon: 'spark' },
+  get_skill: { label: 'Skill 配置', icon: 'spark' },
+  read_skill: { label: '加载 Skill', icon: 'spark' },
+  create_skill: { label: '创建 Skill', icon: 'spark' },
+  update_skill: { label: '修改 Skill', icon: 'spark' },
+  delete_skill: { label: '删除 Skill', icon: 'spark' },
+  import_skill: { label: '导入 Skill', icon: 'spark' },
+  export_skill: { label: '导出 Skill', icon: 'spark' },
+  list_mcp_servers: { label: 'MCP 列表', icon: 'code' },
+  create_mcp_server: { label: '创建 MCP', icon: 'code' },
+  update_mcp_server: { label: '修改 MCP', icon: 'code' },
+  delete_mcp_server: { label: '删除 MCP', icon: 'code' },
+  list_mcp_tools: { label: '发现 MCP 工具', icon: 'code' },
+  call_mcp_tool: { label: '调用 MCP 工具', icon: 'code' },
   read_file: { label: '读取', icon: 'file' },
   write_file: { label: '写入', icon: 'edit' },
   list_directory: { label: '目录', icon: 'folder' },
@@ -39,7 +53,11 @@ export function parseToolObject(text: string): Record<string, unknown> {
 }
 
 export function toolTarget(step: ToolStep): string {
-  const { command, path, query, tasks, timeZone, explanation, content } = parseToolObject(step.input);
+  const { command, path, query, tasks, timeZone, explanation, content, name, tool, filename } = parseToolObject(
+    step.input,
+  );
+  if (typeof name === 'string') return typeof tool === 'string' ? `${name} · ${tool}` : name;
+  if (typeof filename === 'string') return filename;
   if (typeof command === 'string') return command;
   if (typeof path === 'string') return typeof query === 'string' ? `${path} · ${query}` : path;
   if (typeof query === 'string') return query || '浏览工作区记忆';

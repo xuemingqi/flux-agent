@@ -18,6 +18,7 @@ import type { RunStore, ToolExecution } from '../runs/run-store.js';
 import * as schema from './schema.js';
 import { SqliteModelSettingsStore } from './sqlite-model-settings-store.js';
 import { SqliteMemoryStore } from './sqlite-memory-store.js';
+import { SqliteCapabilityStore } from './sqlite-capability-store.js';
 
 /**
  * 当前单进程版本在内存中持有会话对象，关键变化以事务落库。
@@ -32,6 +33,7 @@ export class SqliteRunStore implements RunStore {
   private readonly database;
   readonly modelSettings: SqliteModelSettingsStore;
   readonly memory: SqliteMemoryStore;
+  readonly capabilities: SqliteCapabilityStore;
 
   constructor(path: string) {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -46,6 +48,7 @@ export class SqliteRunStore implements RunStore {
     migrate(this.database, { migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)) });
     this.modelSettings = new SqliteModelSettingsStore(this.database);
     this.memory = new SqliteMemoryStore(this.database);
+    this.capabilities = new SqliteCapabilityStore(this.database);
     this.restore();
   }
 

@@ -23,12 +23,14 @@ export function useToolInspector(thread: Ref<Thread | undefined>) {
 
   function open(inspection: ToolInspection) {
     const { step } = inspection;
-    if (!['read_file', 'write_file'].includes(step.name)) return;
+    const action = inspection.approval?.kind === 'capability' || inspection.approval?.kind === 'mcp';
+    if (!['read_file', 'write_file'].includes(step.name) && !action) return;
     const input = parseToolObject(step.input);
     const isFile =
       (step.status === 'succeeded' && ['read_file', 'write_file'].includes(step.name)) || !!inspection.approval;
-    const file =
-      isFile && typeof input.path === 'string'
+    const file = action
+      ? { path: inspection.approval!.path, content: inspection.approval!.after }
+      : isFile && typeof input.path === 'string'
         ? { path: input.path, content: step.name === 'read_file' ? step.output : String(input.content ?? '') }
         : undefined;
     if (!file) return;

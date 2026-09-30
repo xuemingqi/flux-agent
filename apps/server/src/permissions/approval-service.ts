@@ -11,7 +11,7 @@ export class ApprovalService {
    */
   async request(
     run: Run,
-    details: Pick<Approval, 'toolCallId' | 'inputHash' | 'path' | 'before' | 'after'>,
+    details: Pick<Approval, 'toolCallId' | 'inputHash' | 'path' | 'before' | 'after' | 'kind'>,
     signal: AbortSignal,
   ): Promise<boolean> {
     signal.throwIfAborted();

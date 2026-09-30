@@ -83,6 +83,39 @@ test('web serves the built UI, migrates SQLite and uses the caller workspace out
       assert.equal(session.configured, false);
       assert.equal(session.storage, 'sqlite');
       const cookie = sessionResponse.headers.get('set-cookie').split(';')[0];
+      const capabilityHeaders = { cookie, 'x-flux-token': session.token, 'content-type': 'application/json' };
+      if (attempt === 0) {
+        const skill = await fetch(`${origin}/api/skills`, {
+          method: 'POST',
+          headers: capabilityHeaders,
+          body: JSON.stringify({
+            name: 'cli-skill',
+            markdown:
+              '---\nname: cli-skill\ndescription: CLI package verification\n---\n\nFollow the verified steps.\n',
+          }),
+        });
+        assert.equal(skill.status, 201, await skill.text());
+        const mcp = await fetch(`${origin}/api/mcps`, {
+          method: 'POST',
+          headers: capabilityHeaders,
+          body: JSON.stringify({
+            name: 'cli-mcp',
+            transport: 'http',
+            url: 'https://example.com/mcp',
+            headers: { Authorization: 'Bearer cli-fixture' },
+          }),
+        });
+        assert.equal(mcp.status, 201, await mcp.text());
+      }
+      const skills = await (await fetch(`${origin}/api/skills`, { headers: { cookie } })).json();
+      assert.equal(skills[0].name, 'cli-skill');
+      const exported = await fetch(`${origin}/api/skills/cli-skill/export`, { headers: { cookie } });
+      assert.equal(exported.status, 200);
+      assert.equal((await exported.json()).filename, 'cli-skill.zip');
+      const mcps = await (await fetch(`${origin}/api/mcps`, { headers: { cookie } })).json();
+      assert.equal(mcps[0].name, 'cli-mcp');
+      assert.deepEqual(mcps[0].headerKeys, ['Authorization']);
+      assert.ok(!JSON.stringify(mcps).includes('cli-fixture'));
       const workspacesResponse = await fetch(`${origin}/api/workspaces`, { headers: { cookie } });
       assert.equal(workspacesResponse.status, 200);
       const workspaces = await workspacesResponse.json();

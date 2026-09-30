@@ -78,6 +78,43 @@ const server = createServer(async (request, response) => {
       })}\n\n`,
     );
   send({ role: 'assistant', content: '' });
+  if (['Skill 加载验证', 'Agent 创建 Skill 验证', 'MCP 调用验证'].includes(question)) {
+    const previous = input.messages.filter((message) => message.role === 'tool');
+    let next;
+    if (question === 'Skill 加载验证') {
+      if (!previous.length) next = ['read_skill', { name: 'browser-skill' }];
+      else send({ content: `Skill 已加载：${previous.at(-1).content}` });
+    } else if (question === 'Agent 创建 Skill 验证') {
+      if (!previous.length)
+        next = [
+          'create_skill',
+          {
+            name: 'agent-created-skill',
+            markdown: '---\nname: agent-created-skill\ndescription: Agent 创建的技能\n---\n\n按用户要求完成任务。\n',
+          },
+        ];
+      else send({ content: `Agent Skill 操作结果：${previous.at(-1).content}` });
+    } else {
+      if (!previous.length) next = ['list_mcp_tools', { name: 'browser-mcp' }];
+      else if (previous.length === 1)
+        next = ['call_mcp_tool', { name: 'browser-mcp', tool: 'echo', arguments: { text: 'MCP-ECHO-VERIFIED' } }];
+      else send({ content: `MCP 已调用：${previous.at(-1).content}` });
+    }
+    if (next)
+      send({
+        tool_calls: [
+          {
+            index: 0,
+            id: `capability-${previous.length}`,
+            type: 'function',
+            function: { name: next[0], arguments: JSON.stringify(next[1]) },
+          },
+        ],
+      });
+    send({}, next ? 'tool_calls' : 'stop');
+    response.end('data: [DONE]\n\n');
+    return;
+  }
   const collaborationTask = input.messages.find(
     (message) => message.role === 'user' && ['协作子任务 A', '协作子任务 B'].includes(message.content),
   )?.content;

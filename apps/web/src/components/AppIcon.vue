@@ -1,6 +1,13 @@
 <script setup lang="ts">
 defineProps<{ name: string; size?: number }>();
 const paths: Record<string, string> = {
+  gear: 'M9 3 8 6 5 7 3 6l-2 4 3 2v2l-2 2 2 4 3-1 2 2 1 2h4l1-3 3-1 2 1 2-4-3-2v-2l2-2-2-4-3 1-2-2-1-2H9ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  skill: 'm12 2 9 5v10l-9 5-9-5V7l9-5Zm0 10 9-5M12 12 3 7M12 12v10M7.5 4.5l9 5',
+  plug: 'M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0V8ZM12 16v3a2 2 0 0 1-2 2H7',
+  import: 'M12 3v12M7 10l5 5 5-5M4 15v6h16v-6',
+  export: 'M12 16V3M7 8l5-5 5 5M4 15v6h16v-6',
+  pause: 'M8 5v14M16 5v14',
+  trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   file: 'M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8M8 16h8',
   search: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
   agents: 'M8 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6ZM2 21v-4a6 6 0 0 1 12 0v4M17 4a3 3 0 0 1 0 6M17 14a5 5 0 0 1 5 5v2',

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export * from './capabilities.js';
 
 export const createRunSchema = z.object({ content: z.string().trim().min(1).max(32_000) });
 export const createSteeringSchema = createRunSchema
@@ -52,6 +53,8 @@ export const updatePermissionSchema = z.object({
 });
 export const approvalDecisionSchema = z.object({ decision: z.enum(['approved', 'denied']) });
 export const approvalSchema = z.object({
+  /** 旧文件审批未存类型时仍按文件处理。 */
+  kind: z.enum(['file', 'capability', 'mcp']).optional(),
   id: z.string(),
   runId: z.string(),
   toolCallId: z.string(),

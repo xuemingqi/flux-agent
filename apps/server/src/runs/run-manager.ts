@@ -22,6 +22,10 @@ import { ApprovalService } from '../permissions/approval-service.js';
 import { ToolExecutionService } from '../tools/tool-execution-service.js';
 import { MemoryService } from '../memory/memory-service.js';
 import { WorkspaceFiles } from '../tools/workspace-files.js';
+import { SkillService } from '../skills/skill-service.js';
+import { McpService } from '../mcp/mcp-service.js';
+import { CapabilityPageService } from '../settings/capability-page-service.js';
+import { CapabilityToolService } from '../tools/capability-tool-service.js';
 
 const MAX_THREADS = 100;
 const MAX_ACTIVE_RUNS = 4;
@@ -38,6 +42,7 @@ export class RunManager {
   readonly workspaces: WorkspaceService;
   readonly approvals: ApprovalService;
   readonly memory: MemoryService;
+  readonly capabilities: CapabilityPageService;
   private readonly tools: ToolExecutionService;
   private readonly persistedAt = new Map<string, number>();
 
@@ -53,8 +58,16 @@ export class RunManager {
       this.notify(run.id);
     });
     this.memory = new MemoryService(store.memory);
-    this.tools = new ToolExecutionService(store, this.approvals, protectedDirectory, this.memory, (run, input) =>
-      this.updatePlan(run, input),
+    const skills = new SkillService(store.capabilities);
+    const mcps = new McpService(store.capabilities);
+    this.capabilities = new CapabilityPageService(skills, mcps);
+    this.tools = new ToolExecutionService(
+      store,
+      this.approvals,
+      protectedDirectory,
+      this.memory,
+      (run, input) => this.updatePlan(run, input),
+      new CapabilityToolService(skills, mcps, this.approvals),
     );
   }
 

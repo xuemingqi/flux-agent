@@ -39,6 +39,11 @@ export interface SteeringInbox {
 }
 
 export interface AgentExecutionContext {
+  /** 每次模型请求读取可用能力目录；正文通过 read_skill 按需加载。 */
+  getCapabilities?(): {
+    skills: { name: string; description: string }[];
+    mcps: { name: string; transport: string }[];
+  };
   workspacePath: string;
   permissionMode: PermissionMode;
   /** 子 Agent 的调用命名空间，避免供应商重用调用 ID 时混入父级工具轨迹。 */

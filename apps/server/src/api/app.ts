@@ -23,6 +23,7 @@ import { localAccess, SESSION_COOKIE } from './local-access.js';
 import { streamRunEvents } from './run-events.js';
 import type { ModelSettingsService } from '../settings/model-settings-service.js';
 import { memoryRoutes } from './memory-routes.js';
+import { capabilityRoutes } from './capability-routes.js';
 import { DirectoryPicker } from '../workspaces/directory-picker.js';
 
 interface ApplicationOptions {
@@ -43,14 +44,13 @@ export function createApp({
   const app = new Hono();
   const token = randomBytes(32).toString('hex');
   app.use('/api/*', localAccess(token, origins));
-  app.use(
-    '/api/*',
+  app.use('/api/*', (context, next) =>
     bodyLimit({
-      maxSize: 256_000,
+      maxSize: context.req.path.startsWith('/api/skills') ? 30_000_000 : 256_000,
       onError: () => {
         throw new ApplicationError('BODY_TOO_LARGE', '请求内容过大。', 413);
       },
-    }),
+    })(context, next),
   );
   app.get('/api/session', (context) => {
     setCookie(context, SESSION_COOKIE, token, { httpOnly: true, sameSite: 'Strict', path: '/api' });
@@ -161,6 +161,7 @@ export function createApp({
     return streamSSE(context, (stream) => streamRunEvents(stream, manager, runId));
   });
   app.route('/api', memoryRoutes(manager));
+  app.route('/api', capabilityRoutes(manager.capabilities));
   app.all('/api/*', (context) => context.json({ code: 'NOT_FOUND', message: '接口不存在。' }, 404));
   app.onError((error, context) => {
     if (error instanceof ApplicationError)

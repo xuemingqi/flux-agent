@@ -67,6 +67,7 @@ export function createDelegateTool(
               subscribe: execution.steering?.subscribe,
             },
             getMemories: execution.getMemories,
+            getCapabilities: execution.getCapabilities,
             // 子任务不能覆盖主任务计划，也不能再次递归创建子任务。
             execute: (request, toolSignal) =>
               execution.execute({ ...request, id: `${task.id}:${request.id}` }, toolSignal),

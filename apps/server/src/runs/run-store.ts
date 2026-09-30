@@ -1,5 +1,6 @@
 import type { Run, Thread, Workspace, ModelMessage } from '@flux-agent/contracts';
 import type { MemoryStore } from '../memory/memory-store.js';
+import type { CapabilityStore } from '../storage/capability-store.js';
 
 export interface ToolExecution {
   /**
@@ -17,6 +18,7 @@ export interface ToolExecution {
  * 运行管理器拥有进程内对象；存储实现负责原子快照和副作用执行凭证。
  */
 export interface RunStore {
+  readonly capabilities: CapabilityStore;
   readonly memory: MemoryStore;
   readonly kind: 'memory' | 'sqlite';
   readonly threads: Map<string, Thread>;

@@ -25,6 +25,7 @@ const closeButton = useTemplateRef<HTMLButtonElement>('closeButton');
 const isMarkdown = computed(() => /\.(md|markdown)$/i.test(active.value?.file?.path || ''));
 const filePath = computed(() => {
   const path = active.value?.file?.path || String(input.value.path || '');
+  if (approval.value?.kind === 'capability' || approval.value?.kind === 'mcp') return path;
   return path.startsWith('/') ? path : `${props.workspacePath}/${path}`;
 });
 const sourceLabel = computed(
@@ -109,7 +110,7 @@ watch(closeButton, (button) => button?.focus(), { flush: 'post' });
         {{ source ? 'Markdown 预览' : '查看源码' }}
       </button>
       <button
-        v-if="active.file"
+        v-if="active.file && (!approval?.kind || approval.kind === 'file')"
         class="icon-button"
         aria-label="读取当前文件"
         :disabled="active.loading"
@@ -131,11 +132,20 @@ watch(closeButton, (button) => button?.focus(), { flush: 'post' });
       <template v-if="active.file && !active.loading">
         <div v-if="active.source === 'write' && approval" class="file-change-comparison">
           <section>
-            <h3>修改前{{ approval.before === null ? ' · 新文件' : '' }}</h3>
+            <h3>
+              {{ approval.kind === 'capability' || approval.kind === 'mcp' ? '操作前' : '修改前'
+              }}{{
+                approval.before === null
+                  ? approval.kind === 'capability' || approval.kind === 'mcp'
+                    ? ' · 尚不存在'
+                    : ' · 新文件'
+                  : ''
+              }}
+            </h3>
             <FileContent :content="approval.before ?? '（不存在）'" />
           </section>
           <section>
-            <h3>修改后</h3>
+            <h3>{{ approval.kind === 'capability' || approval.kind === 'mcp' ? '本次操作' : '修改后' }}</h3>
             <FileContent :content="active.file.content" />
           </section>
         </div>

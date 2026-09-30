@@ -4,6 +4,7 @@
 
 ## 已完成
 
+- Skill/MCP 双入口管理：页面服务和 Tool 服务共用 `SkillService` / `McpService` 基础方法。SQLite 保存原始 Skill 资源与 MCP 配置；CRUD、启停、版本冲突校验、Skill ZIP 导入导出、MCP stdio/HTTP/SSE 连接、分页工具发现与调用。Agent 每次请求刷新启用目录，按需加载 Skill；能力操作使用宿主权限、逐次审批与执行凭证。
 - 三档权限、工作区选择、独立工作区会话列表，服务端固定每轮权限。工作区会话支持折叠，加号调用 macOS 原生目录选择器。
 - 目录列表、文本读取、字面搜索、文件写入和完全权限下的本机 Shell。
 - 文件修改前后预览、单次允许／拒绝、持续等待审批与手动取消，审批期间原文和目标路径变化时拒绝写入。
@@ -51,7 +52,7 @@
 | 能力                 | 接入边界                                                          | 下一步约束                                                       |
 | -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
 | 更多模型、多模型切换 | `ModelSettingsStore`、`ModelSettingsService`、模型适配器          | 扩展配置表，不让前端接触凭据                                     |
-| MCP 工具             | `AgentDefinition.tools`、`AgentExecutionContext.execute`          | 工具注册后也必须经过宿主权限和审计，不可绕过审批                 |
+| Skill/MCP 扩展       | `SkillService`、`McpService`、两类入口服务                        | 基础层扩展归档、OAuth、资源与提示词，入口保留各自授权和安全视图  |
 | 计划执行与工作流     | `RunPlan`、`update_plan`、`AgentRuntime.stream`                   | 复用步骤标识和版本；计划变更不能代替权限与审批                   |
 | 运行中补充与消息调度 | `AgentRuntime.supportsSteering`、`AgentExecutionContext.steering` | 新运行时需在可用边界纳入消息并关闭接收；不能静默丢弃或重放副作用 |
 | 反馈与固定评测集     | `Run.feedback`、`Run.agent`、`RunManager.saveFeedback`            | 保留运行与定义版本关联；转成记忆或修改策略需明确流程             |
@@ -60,4 +61,4 @@
 | 多层 Agent 编排      | `delegate_tasks`、`AgentTask`、`AgentExecutionContext`            | 独立子会话与持久恢复，继续继承权限和取消边界                     |
 | 事件回放与多进程     | `RunStore`、SSE 快照边界                                          | 增加持久事件序列、执行租约和分页，替换当前内存活动对象           |
 
-下一阶段建议：Skills 与 MCP → 检查点恢复和副作用核对 → 固定评测集与多层编排。沙箱不在实施范围。当前通过实际使用的接口保留扩展位置，没有建立空模块或将后续能力标为已完成。
+下一阶段建议：检查点恢复和副作用核对 → 固定评测集与多层编排。MCP 可在共享基础层扩展 OAuth、资源和提示词能力。沙箱不在实施范围。

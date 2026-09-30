@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSettingsPage } from './navigation';
 
 test('guides first-time setup, saves settings and starts chatting without restarting', async ({ page }) => {
   await page.goto('http://127.0.0.1:4320');
@@ -17,7 +18,7 @@ test('guides first-time setup, saves settings and starts chatting without restar
   await expect(page.getByText('这是第 1 轮回复。', { exact: false })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: '连接你的第一个模型' })).toHaveCount(0);
-  await page.getByRole('button', { name: '模型设置', exact: true }).click();
+  await openSettingsPage(page, '模型设置');
   await expect(page.getByLabel('模型名称')).toHaveValue('fixture-model');
   await expect(page.getByLabel('上下文窗口（tokens）')).toHaveValue('65536');
   await expect(page.getByLabel('最大输出（tokens）')).toHaveValue('2048');
@@ -29,7 +30,7 @@ test('guides first-time setup, saves settings and starts chatting without restar
   await page.getByRole('button', { name: '保存并开始对话' }).click();
   await expect(page.getByText('updated-model', { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole('button', { name: '模型设置', exact: true }).click();
+  await openSettingsPage(page, '模型设置');
   await expect(page.getByLabel('最大输出（tokens）')).toHaveValue('0');
   await expect(page.getByLabel('API Key', { exact: false })).toHaveAttribute('placeholder', '留空保留当前密钥');
   await page.getByLabel('模型名称').fill('unknown-model');
@@ -41,7 +42,7 @@ test('guides first-time setup, saves settings and starts chatting without restar
   await page.getByLabel('上下文窗口（tokens）').fill('1000000');
   await page.getByRole('button', { name: '保存并开始对话' }).click();
   await page.reload();
-  await page.getByRole('button', { name: '模型设置', exact: true }).click();
+  await openSettingsPage(page, '模型设置');
   await expect(page.getByLabel('上下文窗口（tokens）')).toHaveValue('1000000');
   const requested = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();

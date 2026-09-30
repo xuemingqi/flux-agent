@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { DEFAULT_PERMISSION_MODE, type ModelSettings } from '@flux-agent/contracts';
 import AppIcon from './components/AppIcon.vue';
+import AppMenu from './components/AppMenu.vue';
 import AssistantRun from './components/AssistantRun.vue';
 import AgentWorld from './components/AgentWorld.vue';
 import { useChat } from './composables/use-chat';
@@ -9,6 +10,8 @@ import ModelSettingsPage from './pages/ModelSettingsPage.vue';
 import PermissionSelector from './components/PermissionSelector.vue';
 import WorkspaceList from './components/WorkspaceList.vue';
 import MemoryPage from './pages/MemoryPage.vue';
+import SkillsPage from './pages/SkillsPage.vue';
+import McpPage from './pages/McpPage.vue';
 import { useFollowScroll } from './composables/use-follow-scroll';
 import { useToolInspector } from './composables/use-tool-inspector';
 import ToolInspector from './components/ToolInspector.vue';
@@ -89,7 +92,7 @@ function closeInspector(id?: string) {
   if (!inspectorTabs.value.length && inspectionOpener?.isConnected) inspectionOpener.focus({ preventScroll: true });
 }
 const composerInput = ref<HTMLTextAreaElement>();
-const page = ref<'chat' | 'model-settings' | 'memory'>('chat');
+const page = ref<'chat' | 'model-settings' | 'memory' | 'skills' | 'mcps'>('chat');
 const sidebarOpen = ref(window.innerWidth > 760);
 const collapsedWorkspaces = ref(new Set<string>());
 const turns = computed(
@@ -127,6 +130,11 @@ function openSettings() {
 
 function openMemory() {
   page.value = 'memory';
+  if (window.innerWidth <= 760) sidebarOpen.value = false;
+}
+
+function openCapabilities(target: 'skills' | 'mcps') {
+  page.value = target;
   if (window.innerWidth <= 760) sidebarOpen.value = false;
 }
 
@@ -204,6 +212,14 @@ function toggleWorkspace(id: string) {
           <AppIcon name="sidebar" />
         </button>
       </div>
+      <nav class="app-navigation" aria-label="能力管理">
+        <button :aria-pressed="page === 'skills'" :disabled="!session" @click="openCapabilities('skills')">
+          <AppIcon name="skill" :size="18" />Skill 管理
+        </button>
+        <button :aria-pressed="page === 'mcps'" :disabled="!session" @click="openCapabilities('mcps')">
+          <AppIcon name="plug" :size="18" />MCP 管理
+        </button>
+      </nav>
       <button
         class="new-chat"
         :disabled="pending || loading || !session?.configured || !workspace || !!workspace.archivedAt"
@@ -229,22 +245,21 @@ function toggleWorkspace(id: string) {
         @create="openNewThread"
       />
       <div class="sidebar-bottom">
-        <button
-          class="settings-navigation"
-          :class="{ selected: page === 'memory' }"
-          :disabled="!workspace || pending"
-          @click="openMemory"
-        >
-          <AppIcon name="memory" />长期记忆<AppIcon class="settings-arrow" name="chevron" :size="14" />
-        </button>
-        <button
-          class="settings-navigation"
-          :class="{ selected: page === 'model-settings' }"
-          :disabled="!session || pending"
-          @click="openSettings"
-        >
-          <AppIcon name="settings" />模型设置<AppIcon class="settings-arrow" name="chevron" :size="14" />
-        </button>
+        <AppMenu label="设置" :disabled="!session" trigger-class="app-settings-button">
+          <template #trigger
+            ><AppIcon name="gear" :size="18" />设置<AppIcon class="settings-chevron" name="down" :size="14"
+          /></template>
+          <button :class="{ selected: page === 'memory' }" :disabled="!workspace || pending" @click="openMemory">
+            <AppIcon name="memory" :size="17" />长期记忆
+          </button>
+          <button
+            :class="{ selected: page === 'model-settings' }"
+            :disabled="!session || pending"
+            @click="openSettings"
+          >
+            <AppIcon name="settings" :size="17" />模型设置
+          </button>
+        </AppMenu>
         <div class="storage-note">
           <span class="status-dot" />本地运行<span>·</span
           >{{ session?.storage === 'sqlite' ? 'SQLite 已持久化' : '临时会话' }}
@@ -252,7 +267,13 @@ function toggleWorkspace(id: string) {
       </div>
     </aside>
 
-    <div class="workbench" :class="{ 'has-inspector': page === 'chat' && inspectorTabs.length }">
+    <div
+      class="workbench"
+      :class="{
+        'has-inspector': page === 'chat' && inspectorTabs.length,
+        'has-capabilities': page === 'skills' || page === 'mcps',
+      }"
+    >
       <main>
         <header class="topbar">
           <div class="header-row">
@@ -260,21 +281,23 @@ function toggleWorkspace(id: string) {
               <AppIcon name="sidebar" />
             </button>
             <h1>
-              {{ page === 'model-settings' ? '模型设置' : page === 'memory' ? '长期记忆' : thread?.title || '新对话' }}
+              {{
+                page === 'model-settings'
+                  ? '模型设置'
+                  : page === 'memory'
+                    ? '长期记忆'
+                    : page === 'skills'
+                      ? 'Skill 管理'
+                      : page === 'mcps'
+                        ? 'MCP 管理'
+                        : thread?.title || '新对话'
+              }}
             </h1>
             <span class="workspace-mode"
               ><span class="status-dot" :class="{ offline: !session?.configured }" />{{
                 session?.configured ? '标准模式' : '等待配置'
               }}</span
             >
-            <button
-              class="icon-button header-settings"
-              aria-label="打开模型设置"
-              :disabled="!session"
-              @click="page = page === 'model-settings' ? 'chat' : 'model-settings'"
-            >
-              <AppIcon :name="page === 'model-settings' ? 'chat' : 'settings'" />
-            </button>
           </div>
           <div v-if="page === 'chat'" class="view-tabs" role="tablist" aria-label="对话视图">
             <button
@@ -323,6 +346,8 @@ function toggleWorkspace(id: string) {
           @source="openThread"
           @back="page = 'chat'"
         />
+        <SkillsPage v-else-if="page === 'skills'" />
+        <McpPage v-else-if="page === 'mcps'" />
         <template v-else>
           <section
             :id="`${view}-panel`"
